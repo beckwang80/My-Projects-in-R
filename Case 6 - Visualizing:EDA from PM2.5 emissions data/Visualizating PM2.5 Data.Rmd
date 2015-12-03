@@ -1,0 +1,137 @@
+---
+title: '**Visualizating PM2.5 Data**'
+author: "Xiang Wang"
+output: html_document
+---
+
+#### **Introduction**
+Fine particulate matter (PM2.5) is an ambient air pollutant for which there is strong evidence that it is harmful to human health. In the United States, the Environmental Protection Agency (EPA) is tasked with setting national ambient air quality standards for fine PM and for tracking the emissions of this pollutant into the atmosphere. Approximatly every 3 years, the EPA releases its database on emissions of PM2.5. This database is known as the National Emissions Inventory (NEI). You can read more information about the NEI at the EPA National Emissions Inventory web site.
+For each year and for each type of PM source, the NEI records how many tons of PM2.5 were emitted from that source over the course of the entire year. The data that you will use for this assignment are for 1999, 2002, 2005, and 2008.
+
+#### **Data**
+The data for this assignment are available from the website: https://d396qusza40orc.cloudfront.net/exdata/data/NEI_data.zip
+The zip file contains two files: PM2.5 Emissions Data (summarySCC_PM25.rds) and Source Classification Code Table (Source_Classification_Code.rds). 
+
+PM2.5 Emissions Data: This file contains a data frame with all of the PM2.5 emissions data for 1999, 2002, 2005, and 2008. For each year, the table contains number of tons of PM2.5 emitted from a specific type of source for the entire year.
+
+* fips: A five-digit number (represented as a string) indicating the U.S. county 
+* SCC: The name of the source as indicated by a digit string (see source code classification table)
+* Pollutant: A string indicating the pollutant
+* Emissions: Amount of PM2.5 emitted, in tons
+* type: The type of source (point, non-point, on-road, or non-road)
+* year: The year of emissions recorded
+
+Source Classification Code Table: This table provides a mapping from the SCC digit strings in the Emissions table to the actual name of the PM2.5 source. The sources are categorized in a few different ways from more general to more specific.
+
+#### Data Preparation
+```{r}
+# Load RDS
+NEI <- readRDS("summarySCC_PM25.rds")
+SCC <- readRDS("Source_Classification_Code.rds")
+str(NEI) 
+str(SCC)
+levels(as.factor(NEI$year))
+head(NEI)[1:3,] 
+head(SCC)[1:3,]
+```
+
+#### Data Visualization
+##### **Plot 1:** a barplot showing the sum of emissions in kilotons by **year**
+```{r}
+# compute the sum of emissions in kilotons by year
+Emissions <- aggregate(NEI[, 'Emissions'], by=list(NEI$year), FUN=sum, na.rm=TRUE)
+Emissions$PM <- round(Emissions[,2]/1000, 1)
+head(Emissions)
+# plot the sum of emissions in kilotons by year
+barplot(Emissions$PM, names.arg=Emissions$Group.1, col = 'Grey', main=expression('Total Emission of PM'[2.5]), ylim=c(0, 8000), xlab = 'Year', ylab = expression(paste('PM', ''[2.5], ' in Kilotons'))); box(which="plot")
+## The total emissions from PM2.5 decreased in the United States from 1999 to 2008.
+```
+
+##### **Plot 2:** a barplot showing the sum of emissions in kilotons by **year in Baltimore City, MD**
+```{r}
+# subset the data for Baltimore City, MD
+MD <- subset(NEI, fips=='24510')
+str(MD)
+# make the plot
+barplot(tapply(X=MD$Emissions, INDEX=MD$year, FUN=sum), col='grey', main='Total PM2.5 Emission in Baltimore City, MD', yli=c(0, 4000), xlab='Year', ylab=expression(paste('PM', ''[2.5], ' (ton)'))); box(which="plot")
+## Generally, the total emissions from PM2.5 decreased in the Baltimore City, Maryland from 1999 to 2008.
+```
+
+##### **Plot 3:** a line plot showing the sum of emissions by **year and type** in Baltimore City, MD
+```{r}
+# subset the data for Baltimore City, MD
+MD <- subset(NEI, fips=='24510')
+a <- aggregate(Emissions~year*type, MD, sum)
+# make the plot
+library(ggplot2) # loads ggplot2 package
+g <- ggplot(a, aes(year, Emissions, color=type))
+g <- g + geom_line() + 
+  xlab("year") + 
+  ylab(expression('Total PM'[2.5]*" Emissions")) + 
+  ggtitle('Total Emissions in Baltimore City, Maryland') 
+print(g)
+## Of the four types of *sources* indicated by the type variable, nonpoint, onroad and nonroad have seen decreases in emissions from 1999–2008 for Baltimore City; source of point has seen increases and then decrease in emissions.
+```
+
+##### **Plot 4:** a line plot showing **coal-related emissions** by year across US
+```{r}
+# subset the data for coal-related emissions
+Coal <- SCC[SCC$EI.Sector=="Fuel Comb - Comm/Institutional - Coal", ]["SCC"]
+efc <- NEI[NEI$SCC %in% Coal$SCC, ]
+# use tapply to calculate the total emissions each year due to coal across US
+totalCoal <- tapply(efc$Emissions, efc$year, sum)
+# make the plot
+plot(totalCoal, x=rownames(totalCoal), type="n", axes=FALSE, ylab="PM2.5 (tons)", xlab="Year", main=expression("Coal Related Emission across United States"))
+points(totalCoal, x=rownames(totalCoal), pch=16, col="red")
+lines(totalCoal, x=rownames(totalCoal), col="blue")
+axis(2); axis(side=1, at=seq(1999, 2008, by=3)); box()
+## Across the United States, total emissions from coal combustion-related sources decreased from 1999–2008.
+```
+
+##### **Plot 5:** a barplot showing total emissions from **motor vehicle sources** in Baltimore City, Maryland
+```{r}
+# subset the data for motor vehicle sources in Baltimore City, MD
+motor <- subset(NEI, fips==24510 & type=='ON-ROAD')
+mv <- aggregate(motor[, 'Emissions'], by = list(motor$year), sum)
+colnames(mv) <- c('year', 'Emissions')
+# make the plot
+h <- ggplot(data=mv, aes(x=year, y=Emissions)) 
+h <- h + geom_bar(fill="grey", color="black", stat="identity") + 
+  guides(fill=F) + 
+  ggtitle('Total Emissions of Motor Vehicle Sources in Baltimore City, Maryland') + 
+  ylab('PM2.5 (tons)') + 
+  xlab('Year') + 
+  theme(legend.position='none') + 
+  geom_text(aes(label=round(Emissions, 0), size=1, hjust=0.5, vjust=2))
+print(h)
+## Total emissions from motor vehicle sources decreased from 1999–2008 in Baltimore City.
+```
+
+##### **Plot 6:** a barplot showing total emissions from **motor vehicle sources** in Baltimore City, MD and Los Angeles, CA
+```{r}
+# subset and calculate the data for motor vehicle sources in Baltimore City, MD and Los Angeles, CA
+MD <- subset(NEI, fips=='24510' & type=='ON-ROAD')
+md <- aggregate(MD[, 'Emissions'], by=list(MD$year), sum)
+colnames(md) <- c('year', 'Emissions')
+md$City <- paste(rep('MD', 4))
+
+CA <- subset(NEI, fips=='06037' & type=='ON-ROAD')
+ca <- aggregate(CA[, 'Emissions'], by=list(CA$year), sum)
+colnames(ca) <- c('year', 'Emissions')
+ca$City <- paste(rep('CA', 4))
+
+DF <- as.data.frame(rbind(md, ca))
+str(DF)
+# make the plot
+d <- ggplot(data=DF, aes(x=year, y=Emissions)) 
+d <- d + geom_bar(fill="grey", color="black",stat = "identity") +
+  guides(fill=F) + 
+  ggtitle('Total Emissions of Motor Vehicle Sources\nLos Angeles, CA vs. Baltimore City, MD') + 
+  ylab('PM2.5 (tons)') + 
+  xlab('Year') + 
+  theme(legend.position='none') + 
+  facet_grid(. ~ City) + 
+  geom_text(aes(label=round(Emissions, 0), size=1, hjust=0.5, vjust=-1))
+print(d)
+## Los Angeles County, California has seen much greater motor vehicle emissions over time.
+```
