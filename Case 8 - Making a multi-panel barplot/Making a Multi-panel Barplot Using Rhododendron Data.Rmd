@@ -1,0 +1,65 @@
+---
+title: '**Making a Multi-panel Barplot in R**'
+author: "Xiang Wang"
+output: html_document
+---
+
+#### **Introduction**
+**Multi-panel Barplot** is widely accepted in peer-reviewed journals to show how treatments affect **multiple** response variables in a **SINGLE** figure instead of separated figures. This objective of this project is to generate a multi-panel barplot (high-quality and publishable) using partial data from my previous graduate research which is published in Plant Science (Wang et al. 2009. Plant Science 177:607–617). 
+
+Here is some background information about the research and data. Leaves of overwintering evergreen **Rhododendrons** are typically exposed to freezing temperatures and high light during winters which can potentially result in photon flux exceeding that required for photochemistry. This excess energy, if not dissipated as heat or fluorescence, may cause photo-oxidative damage to PSII. The goal of this study is to compare the photoprotection strategies during seasonal changes from August to December in two *Rhododendron* species (*R. catawbiense* and *R. ponticum*). One of the proposed strategies for rhododendron plants is to up-regulate gene expression of early light-induced proteins (ELIPs). The data used in the project include three response variables (ELIP1, ELIP2 and ELIP3) and two factors (**species** - *R. catawbiense* & *R. ponticum*; **month** - August thru December).  
+
+```{r, warning=FALSE}
+### Data preparation
+ELIPs <- read.csv("/Users/yq/Dropbox/Projects/01 Multi-panel barplot/ELIPs.txt", sep = ",", header=TRUE, comm="#")
+str(ELIPs) # check data structure
+# get means for each ELIP gene
+ELIPs.2 <- aggregate(ELIPs[,4:6], by=list(ELIPs$Month, ELIPs$Species), mean) 
+# get SE, only cols 3:5, and bind columnwise (cbind) to the means
+ELIPs.2<-cbind(ELIPs.2, aggregate(ELIPs[,4:6],by=list(ELIPs$Species, ELIPs$Month),function(x)(sd(x,na.rm=TRUE)/((length(x)-sum(is.na(x)))^0.5)))[,3:5])
+names(ELIPs.2) <- c("Month","Species","ELIP1","ELIP2","ELIP3", "ELIP1se","ELIP2se","ELIP3se") # # assign new names to variables
+# sort ELIPs.2 by Month
+ELIPs.2 <- ELIPs.2[order(ELIPs.2$Month),]
+head(ELIPs.2)[1:4,] # check
+
+### Make the Multi-panel Barplot for the three ELIPs variables
+quartz(title="Seasonal ELIPs expressions in Rhododendrons",height=5,width=4) # open a new plotting window with defined size
+layout(matrix(c(1,2,3),nrow=3),heights=c(1,1,1.3)) # Three figures in one plot
+
+## plot for ELIP1
+par(mar=c(0.6,5,1,1),cex.axis=1.3, cex.lab=1.3) # set margins and plot frame type - top and bottom margins small so plots close together
+a <- with(ELIPs.2,barplot(ELIP1,col=c("grey80","grey30"),ylim=c(0,35),ylab="Relative expression",xlab="",xaxt="n")) 
+box(which="plot")
+with(ELIPs.2,arrows(a, ELIP1+ELIP1se, a, ELIP1-ELIP1se, length = 0.05, angle = 90, code=3)) # err bars
+divs<-c(mean(a[2:3]),mean(a[4:5]),mean(a[6:7]),mean(a[8:9])) # calculate divider locations
+abline(v=divs,lty=2)
+text(a,(ELIPs.2$ELIP1+ELIPs.2$ELIP1se),c("ef","f","e","ef","d","e","b","d","a","c"),pos=3,cex=1.5) # add letters
+with(ELIPs.2,text(0.7,30,"ELIP1",font=2, cex=1.5))
+legend("top",inset=0.02,legend=c("R. catawbiense","R. ponticum"), fill=c("grey80","grey30"),bg="white", text.font=4, cex=1.2)
+
+## plot for ELIP2
+par(mar=c(0.6,5,0.5,1))
+a<-with(ELIPs.2,barplot(ELIP2,col=c("grey80","grey30"),ylim=c(0,120),ylab="Relative expression",xlab="",xaxt="n")) 
+box(which="plot")
+with(ELIPs.2,arrows(a, ELIP2+ELIP2se, a, ELIP2-ELIP2se, length = 0.05, angle = 90, code=3))
+divs<-c(mean(a[2:3]),mean(a[4:5]),mean(a[6:7]),mean(a[8:9])) # calculate divider locations
+abline(v=divs,lty=2)
+text(a,(ELIPs.2$ELIP2+ELIPs.2$ELIP2se),c("f","f","f","f","e","e","c","d","a","b"),pos=3,cex=1.5) # add letters
+with(ELIPs.2,text(0.7,100,"ELIP2",font=2,cex=1.5))
+
+## plot for ELIP3
+par(mar=c(5,5,0.6,1))
+a <- with(ELIPs.2,barplot(ELIP3,col=c("grey80","grey30"),ylim=c(0,80),ylab="Relative expression",xlab="",xaxt="n")) 
+box(which="plot")
+with(ELIPs.2,arrows(a, ELIP3+ELIP3se, a, ELIP3-ELIP3se, length = 0.05, angle = 90, code=3))
+divs<-c(mean(a[2:3]),mean(a[4:5]),mean(a[6:7]),mean(a[8:9])) # calculate divider locations
+abline(v=divs,lty=2)
+text(a,(ELIPs.2$ELIP3+ELIPs.2$ELIP3se),c("f","f","f","f","e","e","b","d","a","c"),pos=3,cex=1.5)
+with(ELIPs.2,text(0.7,70,"ELIP3", font=2, cex=1.5))
+axis(side=1,at=a[c(1,3,5,7,9)],labels=c("Aug","Sep","Oct","Nov","Dec"),font=2, tick=FALSE,cex.axis=1.3)
+mtext(side=1,line=3.5,text=expression(paste("Month")),font=2, cex=1.3)
+
+## Save the file as png format
+dev.copy(png, file="ELIPs.png", height=480, width=320)
+dev.off()
+```
