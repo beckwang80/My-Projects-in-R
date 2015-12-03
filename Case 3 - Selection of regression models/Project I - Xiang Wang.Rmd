@@ -1,5 +1,6 @@
 ---
 title: "Case 3 -Selection of regression models from diabetes data"
+output: html_document
 ---
 
 ```{r}
