@@ -1,0 +1,244 @@
+---
+title: '**Sensory Evaluation of French-fries**'
+author: JOHN ENSLEY and XIANG WANG, Department of Statistics at The Pennsylvania State
+  University
+output: word_document
+---
+  
+### Project Description
+The client wants to examine the effects of two factors (types of oil; age of oil) on the taste of French-fries. Her theory is that fries which were cooked in oil that has been reused over several days taste better than those cooked in fresh oil. She intends to test the effect of different types and ages of oil on the taste of the fries. She is also interested in whether certain features, such as texture, temperature, and color, are related to the perceived quality of the fries.
+
+Her experiment has already been performed with four types of oil and each ranging in age from one to five days. The experiment ran for two weeks. At lunchtime each day, students came into the lab and were randomly given two boxes of fries. During week 1, the students were given one box with oil A and one box with oil B. During week 2, they were given one box with oil C and one box with oil D. After tasting the fries, students filled out a questionnaire in which they scored various attributes on a scale of 1 to 9. The attributes were: appearance, temperature, color, taste, texture, and overall liking. The questionnaire also recorded which fries they preferred, along with health information, allergies, and gender. They gathered a large amount of data, roughly 300-400 responses per day over the two weeks. The data were entered in Microsoft Excel and client agreed to analyze the data using whatever statistical software the consultants prefer.
+
+### Data Preparation
+```{r}
+library(readxl)
+library(plyr)
+library(nlme)
+library(dplyr)
+
+# function that reads all sheets in the Excel file and puts them in a list
+read_excel_allsheets <- function(filename) {
+  sheets <- readxl::excel_sheets(filename)
+  x <- lapply(sheets, function(x) readxl::read_excel(filename, sheet = x))
+  names(x) <- sheets
+  x
+}
+
+# collapse the list of sheets into a single data frame
+data <- ldply(read_excel_allsheets('data.xlsx'))
+# fix column names
+names(data) <- gsub('\\-|\\#| |\\/','.',names(data))
+# select columns we're interested in
+data <- select(data, Samp.Desc,Age,Temperature,Appearance,Color,Taste,Texture,Overall.Liking,Samp.Set)
+data$Age <- as.factor(data$Age) # change Age from numeric to factor
+names(data)[1]<-"Type"; names(data)[8]<-"Liking" # rename Samp.Desc to Type
+names(data)[9] <- "Subject"
+data$Subject <- rep(1:(length(data$Subject)/2), times=rep(2, length(data$Subject)/2))
+
+str(data) # check the data
+# assign new values to Temperature so that the higher the number, the more likeness; 
+# 9 changed to 1, 8 changed to 2, 7 changed to 3, 6 changed to 4
+data$Temperature[data$Temperature==9] <- 1; data$Temperature[data$Temperature==8] <- 2;
+data$Temperature[data$Temperature==7] <- 3; data$Temperature[data$Temperature==6] <- 4;
+# assign new values to Color so that the higher the number, the more likeness; 
+# 9 changed to 1, 8 changed to 2, 7 changed to 3, 6 changed to 4
+data$Color[data$Color==9] <- 1; data$Color[data$Color==8] <- 2;
+data$Color[data$Color==7] <- 3; data$Color[data$Color==6] <- 4;
+```
+
+### Exploratory Data Analysis
+```{r}
+# The histograms below show that the four variables (Appearance, Taste, Texture and Liking) are approximately normal distributed.
+par(mfrow=c(2,2), mar=c(4,4,2,1))
+hist(data$Appearance, col="green"); hist(data$Taste, col="green")
+hist(data$Texture, col="green"); hist(data$Liking, col="green")
+hist(data$Temperature, col="green"); hist(data$Color, col="green") # data skewed
+# Scatterplots of every combination of attributes (to check for collinearity
+pairs(~Temperature+Appearance+Color+Taste+Texture+Liking,data, main="Simple Scatterplot Matrix")
+```
+
+### Question 1: How do oil types and ages affect the overall liking of French fries?
+```{r}
+############ Overall Liking ############
+# repeated measures: take into account the variation in taste between students (since each student tasted two boxes of fries)
+repmeas <- lme(Liking ~ Type * Age, data=data, random = ~ 1 | Subject, method='ML'); summary(repmeas)
+# nothing significant in the interaction terms, so we probably can leave them out
+repmeas2 <- lme(Liking ~ Type + Age, data=data, random = ~ 1 | Subject, method='ML'); summary(repmeas2)
+# looks like there is no significant difference between oil types. Also no significant difference between ages 1, 2, and 3. Ages 4 and 5 are different, however. This suggests that type doesn't have an effect on liking, while age does. Specifically, oil that is > 3 days old corresponds with an increase in liking.
+intervals(repmeas2)
+# 95% confidence intervals reflect this as well.
+anova(repmeas, repmeas2)
+# by a likelihood ratio test (p=0.53), leaving out the interaction terms didn't affect fit
+
+# make some plots
+boxplot(Liking ~ Type, data=data) # again we don't see much difference among different types of oil
+boxplot(Liking ~ Age, data=data) # apparently we can see Age 5 is significantly higher than other ages
+# make a plot showing how overall likings change with ages of oil grouped by different types. We can see generally there is an uptrend with the increase of oil ages within each type of oil.
+data.1 <- aggregate(data[,3:8], by=list(data$Type, data$Age), mean) 
+library(ggplot2)
+d <- ggplot(data=data.1, aes(x=Group.2, y=Liking)) 
+d <- d + geom_bar(fill="grey", color="grey",stat = "identity") +
+  guides(fill=F) + 
+  ggtitle('Mean of Overall Likings in Different Types and Ages of Oils') + 
+  ylab('Liking') + 
+  xlab('Age') + 
+  theme(legend.position='none') + 
+  facet_grid(. ~ Group.1) + 
+  geom_text(aes(label=round(Liking, 0), size=1, hjust=0.5, vjust=-1))
+print(d)
+
+```
+
+### Question 2: How do oil types and ages affect the characteristics (temperature, appearance, color, taste and texture) of French fries?
+```{r}
+############ Appearance ############
+fit.Appearance <- lme(Appearance ~ Type*Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Appearance)
+# No significant interaction terms suggests we do not have to worry about interaction. So we can repeat the process but with a simple additive model.
+fit.Appearance2 <- lme(Appearance ~ Type + Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Appearance2)
+# The above result shows the factor "Type" does not have a significant impact on the Appearance of French fries, but the factor "Age" does. Again, ages of 4 and 5 are significant.
+# Use diagnostic plots to check heteroscedasticity, normality, and influential observerations. These plots appears to indicate the model is a good fit.
+plot(fit.Appearance2); qqnorm(resid(fit.Appearance2)); qqline(resid(fit.Appearance2)) # diagnostic plots
+anova(fit.Appearance, fit.Appearance2) # again (p=0.45) leaving out interactions was ok
+
+# make some plots
+boxplot(Appearance ~ Type, data) # again we don't see much difference among different types of oil
+boxplot(Appearance ~ Age, data) # apparently we can see Age 5 is significantly higher than other ages
+# make a plot showing how Appearance change with ages of oil grouped by different types. We can see generally there is an uptrend with the increase of oil ages within each type of oil.
+e <- ggplot(data=data.1, aes(x=Group.2, y=Appearance)) 
+e <- e + geom_bar(fill="grey", color="grey",stat = "identity") +
+  guides(fill=F) + 
+  ggtitle('Mean of Appearance in Different Types and Ages of Oils') + 
+  ylab('Appearance') + 
+  xlab('Age') + 
+  theme(legend.position='none') + 
+  facet_grid(. ~ Group.1) + 
+  geom_text(aes(label=round(Liking, 0), size=1, hjust=0.5, vjust=-1))
+print(e)
+
+########### Taste ############
+fit.Taste <- lme(Taste ~ Type*Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Taste)
+# No significant interaction terms suggests we do not have to worry about interaction. So we can repeat the process but with a simple additive model.
+fit.Taste2 <- lme(Taste ~ Type + Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Taste2)
+# The above result shows the factor "Type" does not have a significant impact on the taste of French fries, but the factor "Age" does. This time every age level was significant. It appears taste improves significantly with age.
+# Use diagnostic plots to check heteroscedasticity, normality, and influential observerations. These plots appears to indicate the model is a good fit.
+plot(fit.Taste2); qqnorm(resid(fit.Taste2)); qqline(resid(fit.Taste2)) # diagnostic plots
+anova(fit.Taste, fit.Taste2) # again (p=0.52) leaving out interactions was ok
+
+# make some plots
+boxplot(Taste ~ Type, data) # again we don't see much difference among different types of oil
+boxplot(Taste ~ Age, data) # apparently we can see Age 5 is significantly higher than other ages
+# make a plot showing how taste change with ages of oil grouped by different types. We can see generally there is an uptrend with the increase of oil ages within each type of oil.
+f <- ggplot(data=data.1, aes(x=Group.2, y=Taste)) 
+f <- f + geom_bar(fill="grey", color="grey",stat = "identity") +
+  guides(fill=F) + 
+  ggtitle('Mean of Taste in Different Types and Ages of Oils') + 
+  ylab('Taste') + 
+  xlab('Age') + 
+  theme(legend.position='none') + 
+  facet_grid(. ~ Group.1) + 
+  geom_text(aes(label=round(Liking, 0), size=1, hjust=0.5, vjust=-1))
+print(f)
+
+########### Texture ############
+fit.Texture <- lme(Texture ~ Type*Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Texture)
+# The p-value for the interaction term of 0.893 suggests we do not have to worry about interaction. So we can repeat the process but with a simple additive model.
+fit.Texture2 <- lme(Texture ~ Type + Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Texture2)
+# The above result shows the factor "Type" does not have a significant impact on the Texture of French fries, but the factor "Age" does. Only age 5 was significant compared with age 1.
+# Use diagnostic plots to check heteroscedasticity, normality, and influential observerations. These plots appears to indicate the model is a good fit.
+plot(fit.Texture2); qqnorm(resid(fit.Texture2)); qqline(resid(fit.Texture2)) # diagnostic plots
+anova(fit.Texture, fit.Texture2) # again (p=0.55) leaving interaction terms out was ok
+
+# make some plots
+boxplot(Texture ~ Type, data) # again we don't see much difference among different types of oil
+boxplot(Texture ~ Age, data) # apparently we can see Age 5 is significantly higher than other ages
+# make a plot showing how Texture change with ages of oil grouped by different types. We can see generally there is an uptrend with the increase of oil ages within each type of oil.
+g <- ggplot(data=data.1, aes(x=Group.2, y=Texture)) 
+g <- g + geom_bar(fill="grey", color="grey",stat = "identity") +
+  guides(fill=F) + 
+  ggtitle('Mean of Texture in Different Types and Ages of Oils') + 
+  ylab('Texture') + 
+  xlab('Age') + 
+  theme(legend.position='none') + 
+  facet_grid(. ~ Group.1) + 
+  geom_text(aes(label=round(Liking, 0), size=1, hjust=0.5, vjust=-1))
+print(g)
+
+########## Color ##########
+# residuals were pretty non-Gaussian, so I used a log transform on the response. This helped, but they're still not great. Fortunately we have a large sample size, so I think we might still be able to use the model.
+fit.Color <- lme(log(Color) ~ Type*Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Color)
+# No significant interaction terms suggests we do not have to worry about interaction. So we can repeat the process but with a simple additive model.
+fit.Color2 <- lme(log(Color) ~ Type + Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Color2)
+# The above result shows neither type nor age has any significant levels.
+# Use diagnostic plots to check heteroscedasticity, normality, and influential observerations. These plots aren't great.
+plot(fit.Color2); qqnorm(resid(fit.Color2)); qqline(resid(fit.Color2)) # diagnostic plots (note the qqplot isn't very good)
+anova(fit.Color, fit.Color2) # again (p=0.52) leaving out interactions was ok
+
+# make some plots
+boxplot(Color ~ Type, data) # again we don't see much difference among different types of oil
+boxplot(Color ~ Age, data) # not much difference here either
+# make a plot showing how color changes with ages of oil grouped by different types. There isn't much of a trend at all. I'm not sure we can conclude anything about color.
+h <- ggplot(data=data.1, aes(x=Group.2, y=Color)) 
+h <- h + geom_bar(fill="grey", color="grey",stat = "identity") +
+  guides(fill=F) + 
+  ggtitle('Mean of Color in Different Types and Ages of Oils') + 
+  ylab('Color') + 
+  xlab('Age') + 
+  theme(legend.position='none') + 
+  facet_grid(. ~ Group.1) + 
+  geom_text(aes(label=round(Liking, 0), size=1, hjust=0.5, vjust=-1))
+print(h)
+
+########## Temperature ##########
+# not sure we can trust this model either
+fit.Temperature <- lme(Temperature ~ Type*Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Temperature)
+# No significant interaction terms suggests we do not have to worry about interaction. So we can repeat the process but with a simple additive model.
+fit.Temperature2 <- lme(Temperature ~ Type + Age, data=data, random = ~ 1 | Subject, method='ML'); summary(fit.Temperature2)
+# The above result shows the Mel Fry types had an impact on the temperature of French fries, as well as ages 2, 4, and 5. Strange result
+# Use diagnostic plots to check heteroscedasticity, normality, and influential observerations.
+plot(fit.Temperature2); qqnorm(resid(fit.Temperature2)); qqline(resid(fit.Temperature2)) # diagnostic plots. Residuals don't look good.
+anova(fit.Temperature, fit.Temperature2) # again (p=0.27) leaving out interactions was ok
+
+# make some plots
+boxplot(Temperature ~ Type, data) # again we don't see much difference among different types of oil
+boxplot(Temperature ~ Age, data) # does look like liking increases with temperature, contrary to model
+# make a plot showing how Temperaure change with ages of oil grouped by different types. We can see generally there is an uptrend with the increase of oil ages within each type of oil.
+j <- ggplot(data=data.1, aes(x=Group.2, y=Temperature)) 
+j <- j + geom_bar(fill="grey", color="grey",stat = "identity") +
+  guides(fill=F) + 
+  ggtitle('Mean of Temperature in Different Types and Ages of Oils') + 
+  ylab('Temperature') + 
+  xlab('Age') + 
+  theme(legend.position='none') + 
+  facet_grid(. ~ Group.1) + 
+  geom_text(aes(label=round(Liking, 0), size=1, hjust=0.5, vjust=-1))
+print(j)
+
+
+```
+
+### Question 3: How are the characteristics (temperature, appearance, color, taste and texture) of French fries related to the overall liking?
+```{r}
+# Model 1: Least squares regression model 
+data.2 <- data[, 3:9]
+OLS <- lme(Liking~Appearance+Color+Taste+Texture+Temperature, data=data.2, random = ~ 1 | Subject, method='ML'); summary(OLS)
+plot(OLS); qqnorm(resid(OLS)); qqline(resid(OLS)) 
+
+library(car)
+vif(OLS) # all ok - multicollinearity not an issue
+
+# Model 2: Best subset selection using BIC to select the number of predictors
+library(leaps)
+BIC <- regsubsets(Liking~., data.2, nvmax=6) 
+summary(BIC)
+which.min(summary(BIC)$bic) # determine the number of variables with the lowest BIC value; 5 is result
+coef(BIC, id=5) 
+
+# Model 3: Stepwise Regression
+library(MASS)
+fit.step <- lm(Liking~., data.2)
+step <- stepAIC(fit.step, direction="both")
+step$anova # display results
+summary(step)
+### Looks like each of the three models includes all five variables.
+```
