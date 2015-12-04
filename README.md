@@ -1,8 +1,8 @@
 ### My-Projects-in-R
 
-- My name is **Xiang Wang**, a Master student in applied statistics at The Pennsylvania State University. I will graduate in **May 2016**. 
+- My name is **Xiang Wang**, a Master student in applied statistics at *The Pennsylvania State University*. I will graduate in **May 2016**. 
 - I have multidisciplinary trainings in statistics and life science (PhD in Horticulture from Iowa State University). 
-- The courses I have taken (GPA:3.9) are: probability theory, mathematical statistics, applied statistics, regression methods, design of experiments, SAS and R programming, data mining and statistical learning, practical machine learning, clinical trials, statistical consulting.
+- The courses I have taken (**GPA:3.9**) are: probability theory, mathematical statistics, applied statistics, regression methods, design of experiments, SAS and R programming, data mining and statistical learning, practical machine learning, clinical trials, statistical consulting.
 - The following projects are exclusively conducted in **R** for my graduate courses.
 
 #### Case 01: Building classification and prediction models to maximize mail return rates
