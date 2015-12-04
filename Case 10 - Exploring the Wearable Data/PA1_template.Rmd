@@ -1,5 +1,9 @@
-Reproducible Research: Peer Assessment 1 (data from a wearable device)
-==========================================
+---
+title: 'Reproducible Research: data from a wearable device'
+author: "Xiang Wang"
+output: html_document
+---
+
 Created by XIANG WANG on July 19, 2015
 
 ### Setting global options
@@ -20,7 +24,7 @@ str(noNA)
 ```
 
 ### What is mean total number of steps taken per day?
-* Make a histogram of the total number of steps taken each day
+Make a histogram of the total number of steps taken each day
 ```{r}
 library(ggplot2)
 ggplot(noNA, aes(date, steps)) + 
@@ -29,7 +33,7 @@ ggplot(noNA, aes(date, steps)) +
   labs(title = "Histogram of Total Number of Steps Taken Each Day", x = "Date", y = "Total number of steps")
 ```
 
-* Calculate and report the mean and median total number of steps taken per day
+Calculate and report the mean and median total number of steps taken per day
 
 ```{r}
 totalSteps <- aggregate(noNA$steps, list(Date = noNA$date), FUN = "sum")$x
@@ -38,7 +42,7 @@ median(totalSteps)
 ```
 
 ### What is the average daily activity pattern?
-* Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
 ```{r}
 avgSteps <- aggregate(noNA$steps, list(interval = as.numeric(as.character(noNA$interval))), FUN = "mean")
@@ -49,23 +53,23 @@ ggplot(avgSteps, aes(interval, meanOfSteps)) +
   labs(title = "Time Series Plot", x = "5-minute intervals", y = "Average Number of Steps")
 ```
 
-* Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
 ```{r}
 avgSteps[avgSteps$meanOfSteps == max(avgSteps$meanOfSteps), ]
 ```
 
 ### Imputing missing values
-* Calculate and report the total number of missing values in the dataset (i.e. NAs)
+Calculate and report the total number of missing values in the dataset (i.e. NAs)
 
 ```{r}
 sum(is.na(data))
 ```
 
-* Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
 
 Here I use the mean for that 5-minute interval to fill each NA value in the variable steps.
 
-* Create a new dataset that is equal to the original dataset but with the missing data filled in.
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
 
 ```{r}
 newData <- data 
@@ -80,17 +84,16 @@ head(newData)
 sum(is.na(newData))
 ```
 
-* Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
 
 ```{r}
 ggplot(newData, aes(date, steps)) + 
     geom_bar(stat = "identity", colour = "blue", fill = "blue", width = 0.9) + 
     facet_grid(. ~ month, scales = "free") + 
-    labs(title = "Histogram of Total Number of Steps Taken Each Day (NAs replaced by mean)", 
-         x = "Date", y = "Total number of steps")
+    labs(title = "Histogram of Total Number of Steps Taken Each Day (NAs replaced by mean)", x = "Date", y = "Total number of steps")
 ```
 
-* Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
 
 Mean and median total number of steps taken per day:
 ```{r}
@@ -102,26 +105,20 @@ median(newTotalSteps)
 After imputing the missing data, the new mean of total steps taken per day is the same as that of the estimates from the first part of the assignment; the new median of total steps taken per day is 1.189 greater (very small and ignorable) than that of the estimates from the first part. Thus, the impact of imputing missing data on the estimates of the total daily number of steps is limiting and minus. 
 
 ### Are there differences in activity patterns between weekdays and weekends?
-
-* Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
-
+Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
 ```{r}
 newData$weekdays <- factor(format(newData$date, "%A")) # %A for Full weekday
 levels(newData$weekdays)
-levels(newData$weekdays) <- list(weekday = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), 
-                                 weekend = c("Saturday", "Sunday"))
+levels(newData$weekdays) <- list(weekday = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), weekend = c("Saturday", "Sunday"))
 levels(newData$weekdays)
 table(newData$weekdays)
 str(newData)
 ```
 
-* Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
-
+Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
 ```{r}
 library(lattice)
 avgSteps <- aggregate(newData$steps, list(interval = as.numeric(as.character(newData$interval)), weekdays = newData$weekdays), FUN = "mean")
 names(avgSteps)[3] <- "meanOfSteps"
-xyplot(avgSteps$meanOfSteps ~ avgSteps$interval | avgSteps$weekdays, 
-       layout = c(1, 2), type = "l", 
-       xlab = "5-minute interval", ylab = "Average number of steps")
+xyplot(avgSteps$meanOfSteps ~ avgSteps$interval | avgSteps$weekdays, layout = c(1, 2), type = "l", xlab = "5-minute interval", ylab = "Average number of steps")
 ```
