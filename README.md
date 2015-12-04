@@ -2,7 +2,7 @@
 
 - My name is **Xiang Wang**, a Master student in Applied Statistics at *The Pennsylvania State University*. I will graduate in **May 2016**. 
 - I have multidisciplinary trainings in statistics and life science (PhD in Horticulture from *Iowa State University*). 
-- The courses I have taken (**GPA:3.9**) are: probability theory, mathematical statistics, applied statistics, regression methods, design of experiments, SAS and R programming, data mining and statistical learning, practical machine learning, clinical trials, statistical consulting.
+- The courses I have taken (**GPA: 3.9**) are: probability theory, mathematical statistics, applied statistics, regression methods, design of experiments, SAS and R programming, data mining and statistical learning, practical machine learning, clinical trials, statistical consulting.
 - The following projects are exclusively conducted in **R** for my graduate courses.
 
 #### Case 01: Building classification and prediction models to maximize mail return rates
@@ -19,5 +19,8 @@
 
 #### Case 07: Visualizing and EDA from household data
 
-#### Case 08: Making a Multi-panel Barplot Using Rhododendron Data 
+#### Case 08: Making a multi-panel barplot using *Rhododendron* data 
 
+#### Case 09: Impact of severe weather
+
+#### Case 10: Exploring the wearable data

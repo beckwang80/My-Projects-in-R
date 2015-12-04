@@ -61,18 +61,5 @@ For this assignment you will need some specific tools
 
 #### Publishing Your Analysis
 
-For this assignment you will need to publish your analysis on [RPubs.com](http://rpubs.com/). If you do not already have an account, then you will have to create a new account. After you have completed writing your analysis in RStudio, you can publish it to RPubs by doing the following:
+For this assignment you will need to publish your analysis on [RPubs.com](http://rpubs.com/). If you do not already have an account, then you will have to create a new account. After you have completed writing your analysis in RStudio, you can publish it to RPubs.
 
-1. In RStudio, make sure your R Markdown document (`.Rmd`) document is loaded in the editor
-
-2. Click the `Knit HTML` button in the doc toolbar to preview your document.
-
-3. In the preview window, click the `Publish` button.
-
-Once your document is published to RPubs, you should get a unique URL to that document. <b>Make a note of this URL</b> as you will need it to submit your assignment.
-
-<b>NOTE</b>: If you are having trouble connecting with RPubs due to proxy-related or other issues, you can upload your final analysis document file as a PDF to Coursera instead.
-
-#### Submitting Your Assignment
-
-In order to submit this assignment, you must copy the RPubs URL for your completed data analysis document in to the peer assessment question.
