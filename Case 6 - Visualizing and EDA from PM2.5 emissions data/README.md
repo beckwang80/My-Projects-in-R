@@ -1,4 +1,4 @@
-Course Project 2
+Course Project
 ================
 
 Introduction
