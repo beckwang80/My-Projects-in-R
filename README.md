@@ -7,7 +7,7 @@
 
 #### Case 01: Building classification and prediction models to maximize mail return rates
 
-#### Case 02: Predicting the human activity manners from wearable device data 
+#### Case 02: Classification of human activity manners 
 
 #### Case 03: Selection of regression models 
 

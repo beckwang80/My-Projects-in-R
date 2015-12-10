@@ -1,0 +1,213 @@
+---
+title: "Classification of Human Activity Recognition"
+author: 'Xiang Wang, Master Student in Applied Statistics, Department
+  of Statistics, Penn State University'
+date: "December 9, 2015"
+output: html_document
+---
+
+#### 1. Introduction
+As an MAS student, I am specifically interested in apply data mining skills to meet the industry need for dealing with big data. This is also my potential job target when I will graduate in May 2016. One of the emerging markets for high-tech industry is wearable devices which include watch, band, ring and so on. Wearable devices are starting to gain some popularity in the mainstream customers as companies such as *Apple*, *Jawbone*, *Nike*, and *Fitbit* have debut their wearable products. Now it is relatively not expensive to collect a large amount of data about personal activity. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.
+
+I will wrote my report in R Markdown as a more `data-code driven style` in which I focuses more on what and how I did the project instead of the common style like introduction, data analysis and results, appendix ...
+
+#### 2. Raw Data
+The raw data were collected from accelerometers on the belt, forearm, arm, and dumbell of six young health participants. They were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different **manners** (the last variable "classe" in the data set): exactly according to the specification (**Class A**), throwing the elbows to the front (**Class B**), lifting the dumbbell only halfway (**Class C**), lowering the dumbbell only halfway (**Class D**) and throwing the hips to the front (**Class E**).
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. All participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).
+
+More information about the data is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). The original data for this project are available here: http://groupware.les.inf.puc-rio.br/static/WLE/WearableComputing_weight_lifting_exercises_biceps_curl_variations.csv. **Reference:** Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+#### 3. Goal and Procedures
+`The goal of this project` is to build a model to precisely predict or classify the manner each person did the exercise in the validation data. The specific procedures will be as follows:
+
+* `Raw data preparation`. I will do necessary data cleaning and select ONLY the variables I may be interested in. Split the processed data into two parts (3:1 ratio): train data (70%) and validation data (30%).
+* `Preparation of new data for model selection`. Principal component analysis was conducted to reduce the dimension of data before fitting the models since it has a large amount of predictor variables. Select appropriate amount of PCs (~85% variance explained). Standarize the training data and then standarize the validation data according to the mean and standard deviation of training data.
+* `Model building and comparison`. The four classification methods to be used are: multinomial logit regression (MR), linear discriminant analysis (LDA), quadratic discriminant analysis (QDA), and random forest (RF; I will explain this method in detail in `5.4`). The training data will be used to fit different models from these methods; the validation data set will be used to assess how each model performs using the confusion matrix with five classes.
+
+#### 4. Data Preparation
+#### 4.1 Raw Data Preparation
+```{r, warning=FALSE, eval=FALSE, eval=FALSE}
+data <- read.csv("WLE.csv")
+names(data); dim(data)
+```
+
+By running str(data) (not show the result due to space), we can see many numeric variables (for example, kurtosis_yaw_belt) are read as factor due to some characters ("#DIV/0!"); in addition, some variables have a lot of missing values. First, I need to reload the data by ignoring "#DIV/0!" values and change these variables to numeric values for the specified columns (i.e. column 8 to the second last column).
+```{r, warning=FALSE, eval=FALSE}
+data <- read.csv("WLE.csv", header=TRUE, sep=',', na.strings=c("#DIV/0!"))
+data1 <- data 
+for(i in c(7:ncol(data1)-1)) {
+  data1[,i]=as.numeric(as.character(data1[,i]))
+}
+```
+
+To deal with the missing values, we can choose those only the column with a 100% completion rate. Then, I export data2 as a tab delimited text file (newWLE.txt) that is ready for the following steps.
+```{r, warning=FALSE, eval=FALSE}
+# discard the first 7 variables which appears to be not important 
+data2 <- data1[colSums(is.na(data1))==0][-(1:7)]
+# remove rows with missing values
+sum(is.na(data2)) # no missing values now
+# export data2 as a tab delimited text file 
+write.table(data2, "newWLE.txt", sep="\t")
+```
+
+#### 4.2 Data Preparation for Model Selection
+In this part, I will show the details on how train and validation data for model selections are generated.
+```{r, warning=FALSE}
+library(caret) # need createDataPartition function from 'caret' package
+data <- read.csv("newWLE.txt", header=TRUE, sep='\t')
+# use the original five categories instead of two catergories in the midterm report
+# length(which(data$classe=="A")) # 11159
+# length(which(data$classe=="B")) # 7593
+# length(which(data$classe=="C")) # 6844
+# length(which(data$classe=="D")) # 6432
+# length(which(data$classe=="E")) # 7214
+# dim(data) # 39242  51
+# partition data into training and test data (7:3)
+set.seed(1200)
+inTrain <- createDataPartition(y=data$classe, p=.7,list=F)
+train <- data[inTrain,]; valid <- data[-inTrain,]
+
+Y.train <- as.matrix(train[,dim(train)[2]]) # response variable is in last column
+Y.valid <- as.matrix(valid[,dim(valid)[2]]) # response variable is in last column
+n.train <- dim(train)[1] # sample size 27472
+n.valid <- dim(valid)[1] # sample size 11770
+k.train <- length(unique(Y.train)) # number of classes is 5 (A B C D E)
+k.valid <- length(unique(Y.valid)) # number of classes is 5 (A B C D E)
+
+# scale the training data and then scale the validation data using the mean and variance of the training data.
+x.train.mean <- apply(train[,-51], 2, mean)
+x.train.sd <- apply(train[,-51], 2, sd)
+# standardize training data to have mean 0 and sd 1
+X.train <- t((t(train[,-51])-x.train.mean)/x.train.sd) 
+# apply(X.train, 2, mean) # check zero mean and they are 0s
+# apply(X.train, 2, sd) # check sd and they are 1s
+
+# standardize validation data using training mean and sd
+X.valid <- t((t(valid[,-51])-x.train.mean)/x.train.sd) 
+
+pca.train <- princomp(X.train, cor=T) # principal components analysis using correlation matrix
+# summary(pca.train) # the first 15 components consist of ~ 85% of varaiance
+pr.var <- pca.train$sdev^2; pve <- pr.var/sum(pr.var)
+plot(cumsum(pve), xlab="Principal Component", ylab="Cumulative Proportion of Variance Explained", main="Training data", ylim=c(0,1),type='b')
+abline(h=0.85,col="red"); abline(v=1:15,col="grey",lty=2)
+
+pc.comp.train <- pca.train$scores
+pc.comp1.train <- pc.comp.train[,1]; pc.comp2.train <- pc.comp.train[,2] 
+pc.comp3.train <- pc.comp.train[,3]; pc.comp4.train <- pc.comp.train[,4] 
+pc.comp5.train <- pc.comp.train[,5]; pc.comp6.train <- pc.comp.train[,6] 
+pc.comp7.train <- pc.comp.train[,7]; pc.comp8.train <- pc.comp.train[,8]
+pc.comp9.train <- pc.comp.train[,9]; pc.comp10.train <- pc.comp.train[,10] 
+pc.comp11.train <- pc.comp.train[,11]; pc.comp12.train <- pc.comp.train[,12] 
+pc.comp13.train <- pc.comp.train[,13]; pc.comp14.train <- pc.comp.train[,14] 
+pc.comp15.train <- pc.comp.train[,15]
+X.train <- cbind(pc.comp1.train, pc.comp2.train, pc.comp3.train, pc.comp4.train, pc.comp5.train, pc.comp6.train, pc.comp7.train, pc.comp8.train, pc.comp9.train, pc.comp10.train, pc.comp11.train, pc.comp12.train, pc.comp13.train, pc.comp14.train, pc.comp15.train)
+data.train <- as.data.frame(cbind(Y.train, X.train))
+names(data.train) <- c("Y", "X1", "X2", "X3", "X4", "X5", "X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15")
+
+pca.valid <- princomp(X.valid, cor=T) # principal components analysis using correlation matrix
+# summary(pca.valid) # the first 15 components consist of ~ 85% of varaiance
+pr.var1 <- pca.valid$sdev^2; pve1 <- pr.var1/sum(pr.var1)
+plot(cumsum(pve1), xlab="Principal Component", ylab="Cumulative Proportion of Variance Explained", main="Validation data", ylim=c(0,1),type='b')
+abline(h=0.85,col="red"); abline(v=1:15,col="grey",lty=2)
+
+pc.comp.valid <- pca.valid$scores
+pc.comp1.valid <- pc.comp.valid[,1]; pc.comp2.valid <- pc.comp.valid[,2] 
+pc.comp3.valid <- pc.comp.valid[,3]; pc.comp4.valid <- pc.comp.valid[,4] 
+pc.comp5.valid <- pc.comp.valid[,5]; pc.comp6.valid <- pc.comp.valid[,6] 
+pc.comp7.valid <- pc.comp.valid[,7]; pc.comp8.valid <- pc.comp.valid[,8] 
+pc.comp9.valid <- pc.comp.valid[,9]; pc.comp10.valid <- pc.comp.valid[,10] 
+pc.comp11.valid <- pc.comp.valid[,11]; pc.comp12.valid <- pc.comp.valid[,12] 
+pc.comp13.valid <- pc.comp.valid[,13]; pc.comp14.valid <- pc.comp.valid[,14] 
+pc.comp15.valid <- pc.comp.valid[,15]
+X.valid <- cbind(pc.comp1.valid, pc.comp2.valid, pc.comp3.valid, pc.comp4.valid, pc.comp5.valid, pc.comp6.valid, pc.comp7.valid, pc.comp8.valid,  pc.comp9.valid, pc.comp10.valid, pc.comp11.valid, pc.comp12.valid, pc.comp13.valid, pc.comp14.valid, pc.comp15.valid)
+data.valid <- as.data.frame(cbind(Y.valid, X.valid))
+names(data.valid) <- c("Y", "X1", "X2", "X3", "X4","X5", "X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15")
+
+write.table(data.train, "train.txt", sep="\t")
+write.table(data.valid, "valid.txt", sep="\t")
+```
+
+#### 5 Model Selection and Evaluation
+#### 5.1 Model a: Multinomial logit regression (MR) analysis using multinom function in the nnet package
+```{r} 
+library(caret) # need confusionMatrix function in 'caret' package
+data.train <- read.csv("train.txt", header=TRUE, sep='\t')
+data.valid <- read.csv("valid.txt", header=TRUE, sep='\t')
+library(nnet) # package that can do multinomial Log-Linear Models
+model.lr.train <- multinom(Y ~ ., data.train) # Fits multinomial log-linear models using multinom function
+pred.class.train <- predict(model.lr.train) 
+confusionMatrix(pred.class.train, data.train$Y) # confusion matrix for training data
+# The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.7 to 0.9.
+
+model.lr.valid <- multinom(Y ~ ., data.valid) # Fits multinomial log-linear models using multinom function
+pred.class.valid <- predict(model.lr.valid) 
+confusionMatrix(pred.class.valid, data.valid$Y) # confusion matrix for validation data
+# The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.7 to 0.9.
+```
+
+##### Model b:  Linear discriminant analysis (LDA) using lda function in the MASS package
+```{r}
+library(MASS)
+model.lda.train <- lda(Y ~ ., data.train)
+pred.lda.train <- predict(model.lda.train)$class 
+confusionMatrix(pred.lda.train, data.train$Y) # confusion matrix for training data
+# The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.7 to 0.9.
+
+model.lda.valid <- lda(Y ~ ., data.valid)
+pred.lda.valid <- predict(model.lda.valid)$class 
+confusionMatrix(pred.lda.valid, data.valid$Y) # confusion matrix for validation data
+# The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.8 to 0.9.
+```
+
+##### Model c:  Quadratic discriminant analysis (QDA) using qda function in the MASS package
+```{r}
+model.qda.train <- qda(Y ~ ., data.train)
+pred.qda.train <- predict(model.qda.train)$class 
+confusionMatrix(pred.qda.train, data.train$Y) # confusion matrix for training data
+# The prediction accurancy for the five classes ranges from ~ 0.7 to ~ 0.8; sensitivity ranges from 0.4 to 0.8; specificity ranges from 0.7 to 0.9.
+
+model.qda.valid <- lda(Y ~ ., data.valid)
+pred.qda.valid <- predict(model.qda.valid)$class 
+confusionMatrix(pred.qda.valid, data.valid$Y) # confusion matrix for validation data
+# The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.8 to 0.9.
+```
+
+##### Model d: Random forest (RF) using randomForest function
+Random Forest (`RF`) is one of the tree-based methods for regression or classification which involve stratifying or segmenting the predictor space into a number of simple regions. The basic idea of these tree-based methods is to partition the space and identify some representative centroids. The random forests algorithm is shown below. Let N be the number of observations and assume that the response variable is binary:
+
+* Take a random sample of size N with replacement from the data (bootstrap sample).
+* Take a random sample without replacement of the predictors.
+* Construct a split by using predictors selected in Step 2.
+* Repeat Steps 2 and 3 for each subsequent split until the tree is as large as desired. Do not prune. Each tree is produced from a random sample of cases, and at each split a random sample of predictors.
+* Drop the out-of-bag data down the tree. Store the class assigned to each observation along with each observation's predictor values.
+* Repeat Steps 1-5 a large number of times (e.g., 500).
+* For each observation in the dataset, count the number of trees that it is classified in one category over the number of trees.
+* Assign each observation to a final category by a majority vote over the set of trees. Thus, if 51% of the time over a large number of trees a given observation is classified as a "1", that becomes its classification.
+
+RF method involves of randomly choosing subset of predictor variables as well as randomly choosing subset of data samples; it can dramatically reduce both model variance and bias.
+
+```{r,warning=FALSE}
+library(randomForest); set.seed(1)
+model.rf.train <- randomForest(Y ~ ., data.train, importance=TRUE)
+pred.rf.train <- predict(model.rf.train) 
+confusionMatrix(pred.rf.train, data.train$Y) # confusion matrix for training data
+# The prediction accurancy for the five classes is ~ 0.99; sensitivity and specificity all are around 0.99.
+
+model.rf.valid <- randomForest(Y ~ ., data.valid, importance=TRUE)
+pred.rf.valid <- predict(model.rf.valid) 
+confusionMatrix(pred.rf.valid, data.valid$Y) # confusion matrix for validation data
+# The prediction accurancy for the five classes ranges from ~ 0.97 to ~ 0.99; sensitivity ranges from 0.94 to 0.97; specificity ranges from 0.98 to 0.99.
+```
+
+#### Conclusion
+```{r}
+#### Results summary for the validation dataset for model selection
+# Method: Accuracy    Sensitivity   Specificity
+# MR:      61~73%       32~71%       76~93%
+# LDA:     61~73%       32~68%       87~94%
+# QDA:     61~73%       39~68%       77~94%
+# RF:      97~99%       94~97%       98~99% (BEST)
+```
+
+From the above summary table, we can clearly see that the **random forest** method yields significantly higher prediction accuracy, sensitivity and specificity, thus, I would prefer to using this method to predict future potential manners with new testing data. The other three methods actually are not that bad as their accuracies are higher than 60% and specificities are higher than 75%; however, their sensitivities are low for some classes (~30%).
