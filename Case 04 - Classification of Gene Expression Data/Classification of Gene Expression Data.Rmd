@@ -1,10 +1,10 @@
 ---
-title: "Project 2 – Classification (Stat897D - Fall 2015)"
+title: "Classification of Gene Expression Data"
 subtitle: by Xiang Wang on November 9, 2015
-output: word_document
+output: html_document
 ---
 
-#### Background
+### Background
 Gene Expression Data and Physical Interaction Network (Brem and Kruglyak, 2005): Time course data reflect the changes in expression levels in response to *Rapamycin*. The original data source forms a 231 × 95 × 6 array: 231 active genes; 95 segregants (individuals); 6 time points for each segregant at time 0, 10, 20, 30, 40, 50 mins (i.e., 95 x 6 = 570 total expression measurements for each gene). Proteins are involved in most cell functions and they typically bind together to form complex structures. Protein-protein interactions (PPI) are highly important for almost all biological processes. Gene expression data measure the mRNA levels that approximate states of a complex biological system. PPI data is widely used to predict interactions among gene expression data.
 
 **Goal**: Identify interacted genes by using the provided gene expression data. The entire dataset has been split into 2 parts: Training data: 122 genes; Validation data: 53 genes. The data is available in R workspace “Project2.RData” (available in Angel). First, load the data:
@@ -27,7 +27,7 @@ n.valid <- length(Y.valid) # 1378 pairs in validation # data
 mean(Y.valid) # 0.0312 proportion of PPI interactions in validation data
 ```
 
-Next, to predict the interaction between gene i and gene j, we’ll use 5 predictors: mean of gene i (across the 570 measurements for that gene), variance of gene i; mean of gene j, variance of gene j; covariance between gene i and gene j:
+Next, to predict the interaction between gene i and gene j, use 5 predictors: mean of gene i (across the 570 measurements for that gene), variance of gene i; mean of gene j, variance of gene j; covariance between gene i and gene j:
 ```{r} 
 X.train = NULL # 7381 by 5 matrix with 5 predictors for each gene pair 
 for (i in 1:(dim(DATA.train)[1]-1))
@@ -50,10 +50,9 @@ data.valid <- as.data.frame(X.valid)
 names(data.valid) <- c("X1", "X2", "X3", "X4", "X5")
 ```
 
-
 Fit the following models to the training data using the data frame, data.train, that contains Y as the response variable and {X1, X2, X3, X4, X5} as the predictors. For each model obtain the posterior probabilities of interaction for the 7381 gene pairs in the training data, and classify them into class 1 (interacted) if they are in the top 200 most likely interacted pairs and into class 0 (not interacted) otherwise (see hint 2 below). Use these classification results and Y.train to calculate the training classification error rate, sensitivity, and specificity for each model.
 
-##### Model a:  Logistic regression analysis using glm function
+### Model a:  Logistic regression analysis using glm function
 ```{r} 
 model.logistic <- glm(Y ~ X1+X2+X3+X4+X5, data.train, family=binomial("logit"))
 summary(model.logistic)
@@ -98,7 +97,7 @@ sum(Ghat.valid.logistic==1&Y.valid==1)/sum(Y.valid==1) # sensitivity = 24/(24+18
 sum(Ghat.valid.logistic==0&Y.valid==0)/sum(Y.valid==0) # specificity = 1301/(34+1301) = 0.975
 ```
 
-##### Model b:  Linear discriminant analysis using lda function in MASS
+### Model b:  Linear discriminant analysis using lda function in MASS
 ```{r}
 library(MASS)
 model.lda <- lda(Y ~ X1+X2+X3+X4+X5, data.train); model.lda
@@ -143,7 +142,7 @@ sum(Ghat.valid.lda==1&Y.valid==1)/sum(Y.valid==1) # sensitivity = 22/(22+21) = 0
 sum(Ghat.valid.lda==0&Y.valid==0)/sum(Y.valid==0) # specificity = 1311/(1311+24) = 0.982
 ```
 
-##### Model c:  Quadratic discriminant analysis using qda function in MASS
+### Model c:  Quadratic discriminant analysis using qda function in MASS
 ```{r}
 model.qda <- qda(Y ~ X1+X2+X3+X4+X5, data.train); model.qda
 #Prior probabilities of groups:
@@ -179,7 +178,7 @@ sum(Ghat.valid.qda==1&Y.valid==1)/sum(Y.valid==1) # sensitivity = 24/(24+19) = 0
 sum(Ghat.valid.qda==0&Y.valid==0)/sum(Y.valid==0) # specificity = 1307/(1307+28) = 0.979
 ```
 
-##### Model d: K Nearest Neighbors using knn function
+### Model d: K Nearest Neighbors using knn function
 ```{r}
 # By running var and mean functions, we can see the predictors are not standarized to a mean of zero and standard deviation of one. Thus, standardization step does need.
 X <- rbind(X.train,X.valid)
@@ -225,7 +224,7 @@ sum(Ghat.valid.knn==1&Y.valid==1)/sum(Y.valid==1) # sensitivity = 13/(13+30) = 0
 sum(Ghat.valid.knn==0&Y.valid==0)/sum(Y.valid==0) # specificity = 1294/(1294+41) = 0.969
 ```
 
-#### Model e: Logistic regression generalized additive model (GAM)
+### Model e: Logistic regression generalized additive model (GAM)
 ```{r}
 library(gam)
 model.gam <- gam(Y ~ s(X1,df=5)+ s(X2,df=5)+s(X3,df=5)+s(X4,df=5)+s(X5,df=5), data.train, family=binomial)
@@ -290,11 +289,3 @@ sum(Ghat.valid.gam==1&Y.valid==1)/sum(Y.valid==1) # sensitivity = 24/(24+19) = 0
 sum(Ghat.valid.gam==0&Y.valid==0)/sum(Y.valid==0) # specificity = 1254/(1254+81) = 0.939
 ```
 
-#### Results summary for training set (interesting but not useful for model selection)
-Method: Error rate, Sensitivity, Specificity
-Logistic: 28.13%, 45.90%, 85.80%
-LDA:      28.26%, 45.90%, 85.60%
-QDA:      29.04%, 45.90%, 84.40%
-KNN:      24.87%, 53.36%, 86.80%
-GAM: 
-If validation data is available, then validation results are more relevant

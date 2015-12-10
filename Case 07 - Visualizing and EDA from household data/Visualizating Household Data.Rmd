@@ -1,10 +1,10 @@
 ---
 title: '**Visualizing Household Data**'
-author: "Xiang Wang"
+author: "Xiang Wang in Summer 2015"
 output: html_document
 ---
 
-#### Data Description
+### Data Description
 Measurements of electric power consumption in one household with a one-minute sampling rate over a period of almost 4 years. Different electrical quantities and some sub-metering values are available. The following descriptions of the 9 variables in the dataset are taken from the UCI web site:
 
 * Date: Date in format dd/mm/yyyy
@@ -17,8 +17,7 @@ Measurements of electric power consumption in one household with a one-minute sa
 * Sub_metering_2: energy sub-metering No. 2 (in watt-hour of active energy). It corresponds to the laundry room, containing a washing-machine, a tumble-drier, a refrigerator and a light.
 * Sub_metering_3: energy sub-metering No. 3 (in watt-hour of active energy). It corresponds to an electric water-heater and an air-conditioner.
 
-#### Data Preparation
-
+### Data Preparation
 ```{r}
 # read a zip data file without unzipping it
 data <- read.table(unz("household_power_consumption.zip", "household_power_consumption.txt"), header=T, sep=';') 
@@ -35,18 +34,18 @@ data$Date <- as.Date(data$Date, format="%d/%m/%Y")
 data1 <- subset(data, subset=(Date >= "2007-02-01" & Date <= "2007-02-02"))
 ```
 
-#### Visualizing Data
+### Visualizing Data
 ```{r}
-# Plot 1 (Frequency of Global Active Power)
+### Plot 1 (Frequency of Global Active Power) ###
 hist(data1$Global_active_power, main="Global Active Power", xlab="Global Active Power (kilowatts)", ylab="Frequency", col="Grey")
 
-# Plot 2 (Time Series Graph of Global Active Power)
+### Plot 2 (Time Series Graph of Global Active Power) ###
 # get a continuos variable for a line plot
 datetime <- paste(as.Date(data1$Date), data1$Time)
 data1$Datetime <- as.POSIXct(datetime)
 plot(data1$Global_active_power~data1$Datetime, type="l", ylab="Global Active Power (kilowatts)", xlab="")
 
-# Plot 3 
+### Plot 3 ###
 with(data1, {
   plot(Sub_metering_1~Datetime, type="l", ylab="Energy sub metering", xlab="")
   lines(Sub_metering_2~Datetime,col='Red')
@@ -55,7 +54,7 @@ with(data1, {
 legend("topright", pch=1, col=c("black", "red", "blue"), lty=1, lwd=2, 
        legend=c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"))
 
-# Plot 4
+### Plot 4 ###
 par(mfrow=c(2,2), mar=c(4,4,2,1), oma=c(0,0,2,0))
 with(data1, {
   plot(Global_active_power~Datetime, type="l", ylab="Global Active Power (kilowatts)", xlab="")

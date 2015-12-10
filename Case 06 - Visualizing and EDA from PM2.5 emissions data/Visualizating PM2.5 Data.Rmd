@@ -1,14 +1,14 @@
 ---
 title: '**Visualizating PM2.5 Data**'
-author: "Xiang Wang"
+author: "by Xiang Wang in Summer 2015"
 output: html_document
 ---
 
-#### **Introduction**
-Fine particulate matter (PM2.5) is an ambient air pollutant for which there is strong evidence that it is harmful to human health. In the United States, the Environmental Protection Agency (EPA) is tasked with setting national ambient air quality standards for fine PM and for tracking the emissions of this pollutant into the atmosphere. Approximatly every 3 years, the EPA releases its database on emissions of PM2.5. This database is known as the National Emissions Inventory (NEI). You can read more information about the NEI at the EPA National Emissions Inventory web site.
+### Introduction
+Fine particulate matter (`PM2.5`) is an ambient air pollutant for which there is strong evidence that it is harmful to human health. In the United States, the Environmental Protection Agency (EPA) is tasked with setting national ambient air quality standards for fine PM and for tracking the emissions of this pollutant into the atmosphere. Approximatly every 3 years, the EPA releases its database on emissions of PM2.5. This database is known as the National Emissions Inventory (NEI). You can read more information about the NEI at the EPA National Emissions Inventory web site.
 For each year and for each type of PM source, the NEI records how many tons of PM2.5 were emitted from that source over the course of the entire year. The data that you will use for this assignment are for 1999, 2002, 2005, and 2008.
 
-#### **Data**
+### Data
 The data for this assignment are available from the website: https://d396qusza40orc.cloudfront.net/exdata/data/NEI_data.zip
 The zip file contains two files: PM2.5 Emissions Data (summarySCC_PM25.rds) and Source Classification Code Table (Source_Classification_Code.rds). 
 
@@ -23,7 +23,7 @@ PM2.5 Emissions Data: This file contains a data frame with all of the PM2.5 emis
 
 Source Classification Code Table: This table provides a mapping from the SCC digit strings in the Emissions table to the actual name of the PM2.5 source. The sources are categorized in a few different ways from more general to more specific.
 
-#### Data Preparation
+### Data Preparation
 ```{r}
 # Load RDS
 NEI <- readRDS("summarySCC_PM25.rds")
@@ -35,8 +35,8 @@ head(NEI)[1:3,]
 head(SCC)[1:3,]
 ```
 
-#### Data Visualization
-##### **Plot 1:** a barplot showing the sum of emissions in kilotons by **year**
+### Data Visualization
+#### Plot 1: a barplot showing the sum of emissions in kilotons by year
 ```{r}
 # compute the sum of emissions in kilotons by year
 Emissions <- aggregate(NEI[, 'Emissions'], by=list(NEI$year), FUN=sum, na.rm=TRUE)
@@ -47,7 +47,7 @@ barplot(Emissions$PM, names.arg=Emissions$Group.1, col = 'Grey', main=expression
 ## The total emissions from PM2.5 decreased in the United States from 1999 to 2008.
 ```
 
-##### **Plot 2:** a barplot showing the sum of emissions in kilotons by **year in Baltimore City, MD**
+#### Plot 2: a barplot showing the sum of emissions in kilotons by year in Baltimore City, MD
 ```{r}
 # subset the data for Baltimore City, MD
 MD <- subset(NEI, fips=='24510')
@@ -57,7 +57,7 @@ barplot(tapply(X=MD$Emissions, INDEX=MD$year, FUN=sum), col='grey', main='Total 
 ## Generally, the total emissions from PM2.5 decreased in the Baltimore City, Maryland from 1999 to 2008.
 ```
 
-##### **Plot 3:** a line plot showing the sum of emissions by **year and type** in Baltimore City, MD
+#### Plot 3: a line plot showing the sum of emissions by year and type in Baltimore City, MD
 ```{r}
 # subset the data for Baltimore City, MD
 MD <- subset(NEI, fips=='24510')
@@ -73,7 +73,7 @@ print(g)
 ## Of the four types of *sources* indicated by the type variable, nonpoint, onroad and nonroad have seen decreases in emissions from 1999–2008 for Baltimore City; source of point has seen increases and then decrease in emissions.
 ```
 
-##### **Plot 4:** a line plot showing **coal-related emissions** by year across US
+#### Plot 4: a line plot showing coal-related emissions by year across US
 ```{r}
 # subset the data for coal-related emissions
 Coal <- SCC[SCC$EI.Sector=="Fuel Comb - Comm/Institutional - Coal", ]["SCC"]
@@ -88,7 +88,7 @@ axis(2); axis(side=1, at=seq(1999, 2008, by=3)); box()
 ## Across the United States, total emissions from coal combustion-related sources decreased from 1999–2008.
 ```
 
-##### **Plot 5:** a barplot showing total emissions from **motor vehicle sources** in Baltimore City, Maryland
+#### Plot 5: a barplot showing total emissions from motor vehicle sources in Baltimore City, Maryland
 ```{r}
 # subset the data for motor vehicle sources in Baltimore City, MD
 motor <- subset(NEI, fips==24510 & type=='ON-ROAD')
@@ -107,7 +107,7 @@ print(h)
 ## Total emissions from motor vehicle sources decreased from 1999–2008 in Baltimore City.
 ```
 
-##### **Plot 6:** a barplot showing total emissions from **motor vehicle sources** in Baltimore City, MD and Los Angeles, CA
+#### Plot 6: a barplot showing total emissions from motor vehicle sources in Baltimore City, MD and Los Angeles, CA
 ```{r}
 # subset and calculate the data for motor vehicle sources in Baltimore City, MD and Los Angeles, CA
 MD <- subset(NEI, fips=='24510' & type=='ON-ROAD')

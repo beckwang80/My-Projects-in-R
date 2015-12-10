@@ -1,7 +1,6 @@
 ---
 title: '**Sensory Evaluation of French-fries**'
-author: JOHN ENSLEY and XIANG WANG, Department of Statistics at The Pennsylvania State
-  University
+author: JOHN ENSLEY and XIANG WANG, Department of Statistics at The Pennsylvania State University
 output: word_document
 ---
   

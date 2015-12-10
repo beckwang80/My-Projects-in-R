@@ -1,17 +1,17 @@
 ---
 title: '**Making a Multi-panel Barplot in R**'
-author: "Xiang Wang"
+author: "Xiang Wang in Summer 2014"
 output: html_document
 ---
 
-#### **Introduction**
+### **Introduction**
 **Multi-panel Barplot** is widely accepted in peer-reviewed journals to show how treatments affect **multiple** response variables in a **SINGLE** figure instead of separated figures. This objective of this project is to generate a multi-panel barplot (high-quality and publishable) using partial data from my previous graduate research which is published in Plant Science (Wang et al. 2009. Plant Science 177:607–617). 
 
 Here is some background information about the research and data. Leaves of overwintering evergreen **Rhododendrons** are typically exposed to freezing temperatures and high light during winters which can potentially result in photon flux exceeding that required for photochemistry. This excess energy, if not dissipated as heat or fluorescence, may cause photo-oxidative damage to PSII. The goal of this study is to compare the photoprotection strategies during seasonal changes from August to December in two *Rhododendron* species (*R. catawbiense* and *R. ponticum*). One of the proposed strategies for rhododendron plants is to up-regulate gene expression of early light-induced proteins (ELIPs). The data used in the project include three response variables (ELIP1, ELIP2 and ELIP3) and two factors (**species** - *R. catawbiense* & *R. ponticum*; **month** - August thru December).  
 
 ```{r, warning=FALSE}
 ### Data preparation
-ELIPs <- read.csv("/Users/yq/Dropbox/Projects/01 Multi-panel barplot/ELIPs.txt", sep = ",", header=TRUE, comm="#")
+ELIPs <- read.csv("ELIPs.txt", sep = ",", header=TRUE, comm="#")
 str(ELIPs) # check data structure
 # get means for each ELIP gene
 ELIPs.2 <- aggregate(ELIPs[,4:6], by=list(ELIPs$Month, ELIPs$Species), mean) 

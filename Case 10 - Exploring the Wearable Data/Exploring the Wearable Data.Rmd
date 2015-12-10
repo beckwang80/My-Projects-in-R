@@ -1,15 +1,20 @@
 ---
 title: 'Reproducible Research: data from a wearable device'
-author: "Xiang Wang"
+author: "Xiang Wang on July 19, 2015"
 output: html_document
 ---
 
-Created by XIANG WANG on July 19, 2015
+### Introduction
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a `Fitbit, Nike Fuelband, or Jawbone Up`. These type of devices are part of the “quantified self” movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
 
-### Setting global options
-```{r}
-echo = TRUE  # Always make code readable
-```
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+### Data
+The variables included in this dataset are:
+
+* steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+* date: The date on which the measurement was taken in YYYY-MM-DD format
+* interval: Identifier for the 5-minute interval in which measurement was taken
 
 ### Loading and processing the data
 ```{r}
@@ -24,7 +29,7 @@ str(noNA)
 ```
 
 ### What is mean total number of steps taken per day?
-Make a histogram of the total number of steps taken each day
+Make a histogram of the total number of steps taken each day.
 ```{r}
 library(ggplot2)
 ggplot(noNA, aes(date, steps)) + 
@@ -33,8 +38,7 @@ ggplot(noNA, aes(date, steps)) +
   labs(title = "Histogram of Total Number of Steps Taken Each Day", x = "Date", y = "Total number of steps")
 ```
 
-Calculate and report the mean and median total number of steps taken per day
-
+Calculate and report the mean and median total number of steps taken per day.
 ```{r}
 totalSteps <- aggregate(noNA$steps, list(Date = noNA$date), FUN = "sum")$x
 mean(totalSteps)
@@ -43,7 +47,6 @@ median(totalSteps)
 
 ### What is the average daily activity pattern?
 Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
-
 ```{r}
 avgSteps <- aggregate(noNA$steps, list(interval = as.numeric(as.character(noNA$interval))), FUN = "mean")
 str(avgSteps)
@@ -60,17 +63,13 @@ avgSteps[avgSteps$meanOfSteps == max(avgSteps$meanOfSteps), ]
 
 ### Imputing missing values
 Calculate and report the total number of missing values in the dataset (i.e. NAs)
-
 ```{r}
 sum(is.na(data))
 ```
 
-Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
-
-Here I use the mean for that 5-minute interval to fill each NA value in the variable steps.
+Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc. Here I use the mean for that 5-minute interval to fill each NA value in the variable steps.
 
 Create a new dataset that is equal to the original dataset but with the missing data filled in.
-
 ```{r}
 newData <- data 
 for (i in 1:nrow(newData)) {
@@ -85,7 +84,6 @@ sum(is.na(newData))
 ```
 
 Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
-
 ```{r}
 ggplot(newData, aes(date, steps)) + 
     geom_bar(stat = "identity", colour = "blue", fill = "blue", width = 0.9) + 

@@ -1,0 +1,134 @@
+---
+title: "Selection of regression models from diabetes data"
+subtitle: Linear Regression, Variable Selection, Ridge Regression and Lasso 
+author: "Xiang Wang, MAS student at The Pennsylvania State University"
+date: "September 29, 2015"
+output: html_document
+---
+
+### Introduction
+In this project, the diabetes dataset from R’s `lars` library or Efron et al. (2003) was used to fit five different models which include least square regression, best subset selection using BIC, best subset selection using 10-fold cross-validation, ridge and lasso methods. The evaluation of model fit and accuracy was measured by comparing the mean squared prediction errors and their standard errors.
+
+### Analysis and Results
+#### Data preparation and exploration
+The data used here is part of R’s lars package. There are three variables and we are only interested in x and y. The prediction variable x is a variable matrix consisting of ten columns or variables (age, sex, bmi, map, tc, ldl, hdl, tch, ltg, glu); the response variable y consists of one column with 442 observations or patients. A random seed of 1306 was used to ensure the reproducibility of the project results. The data was then partitioned into two sets of data with a 3:1 ratio (training data, 75% roughly; testing data, 25% roughly).
+
+#### Model building process
+Each of the five models shares the same process of model building with the specific steps below.
+
+* The same training data was used to generate each model using five methods.
+* Then the models above were used to predict the response variable y using the test data.
+* The mean squared prediction errors and their standard errors were calculated.
+
+```{r, warning=FALSE}
+library(lars)   # The data is available in R package “lars” 
+library(leaps)  # The package "leaps" was used to perform best subset selection by function regsubsets() 
+library(glmnet) # The package "glmnet" was used to perform Ridge Regression and Lasso
+data(diabetes)
+data.all <- data.frame(cbind(diabetes$x, y=diabetes$y))
+
+# Partition the patients into two groups: training (75%) and test (25%)
+n <- dim(data.all)[1]                      # sample size = 442
+set.seed(1306)                             # set random number generator seed to enable repeatability of results
+test <- sample(n, round(n/4))              # randomly sample 25% test
+data.train <- data.all[-test,]
+data.test <- data.all[test,]
+x <- model.matrix(y~.,data=data.all)[,-1]  # define predictor matrix excl intercept col of 1s 
+x.train <- x[-test,]                       # define training predictor matrix
+x.test <- x[test,]                         # define test predictor matrix
+y <- data.all$y                            # define response variable
+y.train <- y[-test]                        # define training response variable
+y.test <- y[test]                          # define test response variable
+n.train <- dim(data.train)[1]              # training sample size
+n.test <- dim(data.test)[1]                # test sample size
+```
+
+#### Model 1: Least squares regression model using all ten predictors 
+R’s `lm` function was used to generate the least square model on all ten predictors. The following result shows the coefficient estimates and their corresponding p-values as well as the residuals plots for checking regression assumptions.
+
+We can see that the four predictors (sex, bmi, map and ltg) are considered significant predictors with p-values smaller than 0.05. The plots also suggest that the residuals are roughly normally distributed. The multiple R-squared is 0.5213, and the adjusted R-squared is 0.5064. The F-statistic is 34.96 on 10 and 321 DF, p-value: < 2.2e-16. The mean squared predicted error is calculated as 3111.3 and its standard error is 361.1.
+```{r}
+OLS <- lm(y~., data.train); summary(OLS)   # fit the least squres model using training data
+pred.OLS <- predict(OLS, data.test)        # predict the response using test data
+mean((y.test-pred.OLS)^2)                  # calculate the mean prediction error (MSE)
+sd((y.test-pred.OLS)^2)/sqrt(n.test)       # calculate the standard error of MSE
+par(mfrow=c(2,2)); plot(OLS)               # Check assumptions using residual and Q-Q plots
+```
+
+#### Model 2: Best subset selection using BIC to select the number of predictors
+Since there is no built-in `predict()` function for regsubsets, function of `predict.regsubsets()` for best subset selection is defined using the code given in textbook. The regsubsets function (part of leaps package) was used to generate models with one through ten predictors. The model showing the lowest BIC (- 201.1) has six predictors (also shown in the figure on the right). Their coefficients and estimates are: sex (-306.0), bmi (538.8), map (389.1), tc (-379.0), tch (332.7) and ltg (527.6). From  the predicted responses, the mean squared predicted error is calculated as 3095.5 and its standard error is computed to be 369.8.
+```{r}
+BIC <- regsubsets(y~., data=data.train, nvmax=10) # fit the best subset model using training data
+summary(BIC)                                      # summarize the best subset model 
+which.min(summary(BIC)$bic)                       # determine the number of variables with the lowest BIC value
+coef(BIC, id=6)                                   # show the coefficient estimates for the model above
+
+# Create the function to use predict() with regsubsets 
+predict.regsubsets=function(object,newdata,id,...){
+   form=as.formula(object$call[[2]])
+   mat=model.matrix(form,newdata)
+   coefi=coef(object,id=id)
+   xvars=names(coefi)
+   mat[,xvars]%*%coefi
+}
+
+pred.BIC <- predict(BIC, data.test, id=6)         # predict the response using test data
+mean((y.test-pred.BIC)^2)                         # calculate the mean prediction error (MSE)
+sd((y.test-pred.BIC)^2)/sqrt(n.test)              # calculate the standard error of MSE
+plot(BIC, scale='bic')
+```
+
+#### Model 3: Best subset selection using 10-fold cross-validation to select the number of predictors 
+The `regsubsets` function (part of `leaps` package) was used to generate models with one through ten predictors. Training set is used to perform the 10-fold cross-validation to determine the number of predictors that would produces the lowest training mean cross-validation error. The model that had the lowest cross-validation error is a model with six predictors with the lowest mean cross-validation error (2979) (also shown in the figure on the right). This model’s coefficients and their estimates are: sex (-306.0), bmi (538.8), map (389.1), tc (- 379.0), tch (332.7) and ltg (527.6). From  the predicted responses, the mean squared predicted error is calculated as 3095.5 and its standard error is computed to be 369.8.
+```{r}
+k=10; set.seed(1306)                                              # set k fold and random seed               
+folds <- sample(1:k, nrow(data.train), replace=TRUE)              # define each fold
+cv.errors <- matrix(NA, k, 10, dimnames=list(NULL, paste(1:10)))  # define the matrix for CV errors
+for(j in 1:k){
+   best=regsubsets(y~., data=data.train[folds!=j,], nvmax=10)
+   for(i in 1:10) {
+     pred=predict(best,data.train[folds==j,], id=i)
+     cv.errors[j, i]=mean((data.train$y[folds==j]-pred)^2)
+   }
+}
+mean.cv.errors <- apply(cv.errors, 2, mean); mean.cv.errors      # calculate the mean CV error
+which.min(mean.cv.errors) # 6                                    # determine the number of variables with the lowest CV error
+best <- regsubsets(y~., data=data.train, nvmax=10)               # fit the best subset model using training data
+coef(best, 6)                                                    # show the coefficient estimates for the model above
+pred.best <- predict(best,data.test, 6)                          # predict the response using test data
+mean((y.test-pred.best)^2)                                       # calculate the mean prediction error (MSE)
+sd((y.test-pred.best)^2)/sqrt(n.test)                            # calculate the standard error of MSE
+plot(mean.cv.errors, type='b')
+```
+
+#### Model 4: Ridge regression using 10-fold cross-validation to select the largest value of λ such that the cross-validation error # is within 1 SE of the minimum
+The `cv.glmnet` function (part of R `glmnet` package) was used to generate a model that is set to 10-fold CV and alpha=0 to determine the largest λ value with CV error within 1 SE of the minimum. The model obtained is also shown in the figure on the right.
+
+It is notable that most of the coefficients are smaller than the previous ones, which actually implies the shrinkage method works. This model has ten predictors with λ value to be 41.67. This model’s predictor coefficients and their estimates are age (-11.29), sex (-156.90), bmi (374.45), map (264.86), tc (-32.09), ldl (-66.98), hdl (-173.82), tch (124.04), ltg (307.73), and glu (134.52). The model is then used to predict responses on the test dataset. From the predicted responses, the mean squared predicted error is computed to be 3070.9 and its standard error is computed to be 350.6.
+```{r}
+set.seed(1306) 
+cv.out <- cv.glmnet(x.train, y.train, alpha=0, nfolds=10)
+bestλ <- cv.out$lambda.1se; bestλ
+ridge <- glmnet(x.train, y.train,alpha=0) 
+pred.ridge <- predict(ridge, s=bestλ, newx=x.test)
+predict(ridge, type="coefficients", s=bestλ)[1:11, ]
+mean((y.test-pred.ridge)^2)
+sd((y.test-pred.ridge)^2)/sqrt(n.test)  
+plot(cv.out)
+```
+
+#### Model 5: Lasso regression using 10-fold cross-validation to select the largest value of λ such that the cross-validation error  # is within 1 SE of the minimum
+Similarly, the cv.glmnet function (part of R glmnet package) was used to generate a lasso model that is set to 10-fold CV and alpha=1 to determine the largest λ value with CV error within 1 SE of the minimum. This model chosen only contains six predictors with λ value to be 4.79. The model’s predictor coefficients and their estimates are sex (-119.65), bmi (501.49), map (270.92), hdl (-180.30), ltg (390.57) and glu (16.61). From the predicted responses, the mean squared predicted error is 2920.1 and its standard error is 346.2.
+```{r}
+set.seed(1306)
+cv.out <- cv.glmnet(x.train, y.train, alpha=1, nfolds=10)
+bestλ <- cv.out$lambda.1se; bestλ
+lasso <- glmnet(x.train, y.train, alpha =1)
+pred.lasso <- predict(lasso, s=bestλ, newx=x.test, exact=T) 
+mean((y.test-pred.lasso)^2)
+sd((y.test-pred.lasso)^2)/sqrt(n.test) 
+plot(cv.out)
+```
+
+### Summary and Conclusion
+In general, I think the mean squared prediction errors and their standard errors are fairly close to each other although they vary at some extent. From the points of model complexity and interpretation, BIC and 10-fold cross-validation of best subset models as well as well as the lasso model are the simplest or optimal models. Considering that the Lasso model had the smallest prediction error and standard error, it is the best model I prefer to.
