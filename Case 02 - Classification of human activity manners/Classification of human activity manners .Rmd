@@ -1,32 +1,36 @@
 ---
 title: "Classification of Human Activity Recognition"
-author: 'Xiang Wang, Master Student in Applied Statistics, Department
-  of Statistics, Penn State University'
-date: "December 9, 2015"
+author: Xiang Wang, Master Student in Applied Statistics, Department of Statistics,
+  Penn State University
+date: "December 11, 2015"
 output: html_document
 ---
 
-#### 1. Introduction
+## Abstract
+Wearable devices such as watch, band, ring and so on from big tech companies are starting to gain some popularity in the mainstream customers. They track and monitor the human activities such as jogging, walking, sleeping and so on. The raw data were collected from accelerometers on the belt, forearm, arm, and dumbell of six young health participants in five different **manners**. The objective of this project is to build a model to precisely predict or classify the manner each person did the exercise. Four classification methods are used: multinomial logit regression (MR), linear discriminant analysis (LDA), quadratic discriminant analysis (QDA) and random forest (RF). Results show that **random forest** method yields significantly higher prediction accuracy, sensitivity and specificity than the other three methods. Thus, I would prefer to this method to predict potential manners with new testing data.
+
+
+### 1. Introduction
 As an MAS student, I am specifically interested in apply data mining skills to meet the industry need for dealing with big data. This is also my potential job target when I will graduate in May 2016. One of the emerging markets for high-tech industry is wearable devices which include watch, band, ring and so on. Wearable devices are starting to gain some popularity in the mainstream customers as companies such as *Apple*, *Jawbone*, *Nike*, and *Fitbit* have debut their wearable products. Now it is relatively not expensive to collect a large amount of data about personal activity. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.
 
-I will wrote my report in R Markdown as a more `data-code driven style` in which I focuses more on what and how I did the project instead of the common style like introduction, data analysis and results, appendix ...
 
-#### 2. Raw Data
+### 2. Raw Data
 The raw data were collected from accelerometers on the belt, forearm, arm, and dumbell of six young health participants. They were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different **manners** (the last variable "classe" in the data set): exactly according to the specification (**Class A**), throwing the elbows to the front (**Class B**), lifting the dumbbell only halfway (**Class C**), lowering the dumbbell only halfway (**Class D**) and throwing the hips to the front (**Class E**).
 
 Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. All participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).
 
 More information about the data is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). The original data for this project are available here: http://groupware.les.inf.puc-rio.br/static/WLE/WearableComputing_weight_lifting_exercises_biceps_curl_variations.csv. **Reference:** Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
 
-#### 3. Goal and Procedures
+
+### 3. Goal and Procedures
 `The goal of this project` is to build a model to precisely predict or classify the manner each person did the exercise in the validation data. The specific procedures will be as follows:
 
 * `Raw data preparation`. I will do necessary data cleaning and select ONLY the variables I may be interested in. Split the processed data into two parts (3:1 ratio): train data (70%) and validation data (30%).
 * `Preparation of new data for model selection`. Principal component analysis was conducted to reduce the dimension of data before fitting the models since it has a large amount of predictor variables. Select appropriate amount of PCs (~85% variance explained). Standarize the training data and then standarize the validation data according to the mean and standard deviation of training data.
 * `Model building and comparison`. The four classification methods to be used are: multinomial logit regression (MR), linear discriminant analysis (LDA), quadratic discriminant analysis (QDA), and random forest (RF; I will explain this method in detail in `5.4`). The training data will be used to fit different models from these methods; the validation data set will be used to assess how each model performs using the confusion matrix with five classes.
 
-#### 4. Data Preparation
-#### 4.1 Raw Data Preparation
+### 4. Data Preparation
+### 4.1 Raw Data Preparation
 ```{r, warning=FALSE, eval=FALSE, eval=FALSE}
 data <- read.csv("WLE.csv")
 names(data); dim(data)
@@ -51,7 +55,7 @@ sum(is.na(data2)) # no missing values now
 write.table(data2, "newWLE.txt", sep="\t")
 ```
 
-#### 4.2 Data Preparation for Model Selection
+### 4.2 Data Preparation for Model Selection
 In this part, I will show the details on how train and validation data for model selections are generated.
 ```{r, warning=FALSE}
 library(caret) # need createDataPartition function from 'caret' package
@@ -128,8 +132,8 @@ write.table(data.train, "train.txt", sep="\t")
 write.table(data.valid, "valid.txt", sep="\t")
 ```
 
-#### 5 Model Selection and Evaluation
-#### 5.1 Model a: Multinomial logit regression (MR) analysis using multinom function in the nnet package
+### 5 Model Selection and Evaluation
+### 5.1 Model a: Multinomial logit regression (MR) analysis using multinom function in the nnet package
 ```{r} 
 library(caret) # need confusionMatrix function in 'caret' package
 data.train <- read.csv("train.txt", header=TRUE, sep='\t')
@@ -146,7 +150,7 @@ confusionMatrix(pred.class.valid, data.valid$Y) # confusion matrix for validatio
 # The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.7 to 0.9.
 ```
 
-##### Model b:  Linear discriminant analysis (LDA) using lda function in the MASS package
+### Model b:  Linear discriminant analysis (LDA) using lda function in the MASS package
 ```{r}
 library(MASS)
 model.lda.train <- lda(Y ~ ., data.train)
@@ -160,7 +164,7 @@ confusionMatrix(pred.lda.valid, data.valid$Y) # confusion matrix for validation 
 # The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.8 to 0.9.
 ```
 
-##### Model c:  Quadratic discriminant analysis (QDA) using qda function in the MASS package
+### Model c:  Quadratic discriminant analysis (QDA) using qda function in the MASS package
 ```{r}
 model.qda.train <- qda(Y ~ ., data.train)
 pred.qda.train <- predict(model.qda.train)$class 
@@ -173,7 +177,7 @@ confusionMatrix(pred.qda.valid, data.valid$Y) # confusion matrix for validation 
 # The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.8 to 0.9.
 ```
 
-##### Model d: Random forest (RF) using randomForest function
+### Model d: Random forest (RF) using randomForest function
 Random Forest (`RF`) is one of the tree-based methods for regression or classification which involve stratifying or segmenting the predictor space into a number of simple regions. The basic idea of these tree-based methods is to partition the space and identify some representative centroids. The random forests algorithm is shown below. Let N be the number of observations and assume that the response variable is binary:
 
 * Take a random sample of size N with replacement from the data (bootstrap sample).
@@ -200,7 +204,7 @@ confusionMatrix(pred.rf.valid, data.valid$Y) # confusion matrix for validation d
 # The prediction accurancy for the five classes ranges from ~ 0.97 to ~ 0.99; sensitivity ranges from 0.94 to 0.97; specificity ranges from 0.98 to 0.99.
 ```
 
-#### Conclusion
+### Conclusion
 ```{r}
 #### Results summary for the validation dataset for model selection
 # Method: Accuracy    Sensitivity   Specificity

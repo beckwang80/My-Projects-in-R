@@ -10,6 +10,7 @@
 
 <meta name="author" content="Xiang Wang, Master Student in Applied Statistics, Department of Statistics, Penn State University" />
 
+<meta name="date" content="2015-12-11" />
 
 <title>Classification of Human Activity Recognition</title>
 
@@ -63,23 +64,25 @@ img {
 <div id="header">
 <h1 class="title">Classification of Human Activity Recognition</h1>
 <h4 class="author"><em>Xiang Wang, Master Student in Applied Statistics, Department of Statistics, Penn State University</em></h4>
-<h4 class="date"><em>December 9, 2015</em></h4>
+<h4 class="date"><em>December 11, 2015</em></h4>
 </div>
 
 
-<div id="introduction" class="section level4">
-<h4>1. Introduction</h4>
+<div id="abstract" class="section level2">
+<h2>Abstract</h2>
+<p>Wearable devices such as watch, band, ring and so on from big tech companies are starting to gain some popularity in the mainstream customers. They track and monitor the human activities such as jogging, walking, sleeping and so on. The raw data were collected from accelerometers on the belt, forearm, arm, and dumbell of six young health participants in five different <strong>manners</strong>. The objective of this project is to build a model to precisely predict or classify the manner each person did the exercise. Four classification methods are used: multinomial logit regression (MR), linear discriminant analysis (LDA), quadratic discriminant analysis (QDA) and random forest (RF). Results show that <strong>random forest</strong> method yields significantly higher prediction accuracy, sensitivity and specificity than the other three methods. Thus, I would prefer to this method to predict potential manners with new testing data.</p>
+<div id="introduction" class="section level3">
+<h3>1. Introduction</h3>
 <p>As an MAS student, I am specifically interested in apply data mining skills to meet the industry need for dealing with big data. This is also my potential job target when I will graduate in May 2016. One of the emerging markets for high-tech industry is wearable devices which include watch, band, ring and so on. Wearable devices are starting to gain some popularity in the mainstream customers as companies such as <em>Apple</em>, <em>Jawbone</em>, <em>Nike</em>, and <em>Fitbit</em> have debut their wearable products. Now it is relatively not expensive to collect a large amount of data about personal activity. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.</p>
-<p>I will wrote my report in R Markdown as a more <code>data-code driven style</code> in which I focuses more on what and how I did the project instead of the common style like introduction, data analysis and results, appendix …</p>
 </div>
-<div id="raw-data" class="section level4">
-<h4>2. Raw Data</h4>
+<div id="raw-data" class="section level3">
+<h3>2. Raw Data</h3>
 <p>The raw data were collected from accelerometers on the belt, forearm, arm, and dumbell of six young health participants. They were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different <strong>manners</strong> (the last variable “classe” in the data set): exactly according to the specification (<strong>Class A</strong>), throwing the elbows to the front (<strong>Class B</strong>), lifting the dumbbell only halfway (<strong>Class C</strong>), lowering the dumbbell only halfway (<strong>Class D</strong>) and throwing the hips to the front (<strong>Class E</strong>).</p>
 <p>Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. All participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).</p>
 <p>More information about the data is available from the website here: <a href="http://groupware.les.inf.puc-rio.br/har" class="uri">http://groupware.les.inf.puc-rio.br/har</a> (see the section on the Weight Lifting Exercise Dataset). The original data for this project are available here: <a href="http://groupware.les.inf.puc-rio.br/static/WLE/WearableComputing_weight_lifting_exercises_biceps_curl_variations.csv" class="uri">http://groupware.les.inf.puc-rio.br/static/WLE/WearableComputing_weight_lifting_exercises_biceps_curl_variations.csv</a>. <strong>Reference:</strong> Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human ’13) . Stuttgart, Germany: ACM SIGCHI, 2013.</p>
 </div>
-<div id="goal-and-procedures" class="section level4">
-<h4>3. Goal and Procedures</h4>
+<div id="goal-and-procedures" class="section level3">
+<h3>3. Goal and Procedures</h3>
 <p><code>The goal of this project</code> is to build a model to precisely predict or classify the manner each person did the exercise in the validation data. The specific procedures will be as follows:</p>
 <ul>
 <li><code>Raw data preparation</code>. I will do necessary data cleaning and select ONLY the variables I may be interested in. Split the processed data into two parts (3:1 ratio): train data (70%) and validation data (30%).</li>
@@ -87,11 +90,11 @@ img {
 <li><code>Model building and comparison</code>. The four classification methods to be used are: multinomial logit regression (MR), linear discriminant analysis (LDA), quadratic discriminant analysis (QDA), and random forest (RF; I will explain this method in detail in <code>5.4</code>). The training data will be used to fit different models from these methods; the validation data set will be used to assess how each model performs using the confusion matrix with five classes.</li>
 </ul>
 </div>
-<div id="data-preparation" class="section level4">
-<h4>4. Data Preparation</h4>
+<div id="data-preparation" class="section level3">
+<h3>4. Data Preparation</h3>
 </div>
-<div id="raw-data-preparation" class="section level4">
-<h4>4.1 Raw Data Preparation</h4>
+<div id="raw-data-preparation" class="section level3">
+<h3>4.1 Raw Data Preparation</h3>
 <pre class="r"><code>data &lt;- read.csv(&quot;WLE.csv&quot;)
 names(data); dim(data)</code></pre>
 <p>By running str(data) (not show the result due to space), we can see many numeric variables (for example, kurtosis_yaw_belt) are read as factor due to some characters (“#DIV/0!”); in addition, some variables have a lot of missing values. First, I need to reload the data by ignoring “#DIV/0!” values and change these variables to numeric values for the specified columns (i.e. column 8 to the second last column).</p>
@@ -108,8 +111,8 @@ sum(is.na(data2)) # no missing values now
 # export data2 as a tab delimited text file 
 write.table(data2, &quot;newWLE.txt&quot;, sep=&quot;\t&quot;)</code></pre>
 </div>
-<div id="data-preparation-for-model-selection" class="section level4">
-<h4>4.2 Data Preparation for Model Selection</h4>
+<div id="data-preparation-for-model-selection" class="section level3">
+<h3>4.2 Data Preparation for Model Selection</h3>
 <p>In this part, I will show the details on how train and validation data for model selections are generated.</p>
 <pre class="r"><code>library(caret) # need createDataPartition function from 'caret' package</code></pre>
 <pre><code>## Loading required package: lattice
@@ -186,11 +189,11 @@ names(data.valid) &lt;- c(&quot;Y&quot;, &quot;X1&quot;, &quot;X2&quot;, &quot;X
 write.table(data.train, &quot;train.txt&quot;, sep=&quot;\t&quot;)
 write.table(data.valid, &quot;valid.txt&quot;, sep=&quot;\t&quot;)</code></pre>
 </div>
-<div id="model-selection-and-evaluation" class="section level4">
-<h4>5 Model Selection and Evaluation</h4>
+<div id="model-selection-and-evaluation" class="section level3">
+<h3>5 Model Selection and Evaluation</h3>
 </div>
-<div id="model-a-multinomial-logit-regression-mr-analysis-using-multinom-function-in-the-nnet-package" class="section level4">
-<h4>5.1 Model a: Multinomial logit regression (MR) analysis using multinom function in the nnet package</h4>
+<div id="model-a-multinomial-logit-regression-mr-analysis-using-multinom-function-in-the-nnet-package" class="section level3">
+<h3>5.1 Model a: Multinomial logit regression (MR) analysis using multinom function in the nnet package</h3>
 <pre class="r"><code>library(caret) # need confusionMatrix function in 'caret' package
 data.train &lt;- read.csv(&quot;train.txt&quot;, header=TRUE, sep='\t')
 data.valid &lt;- read.csv(&quot;valid.txt&quot;, header=TRUE, sep='\t')
@@ -288,8 +291,9 @@ confusionMatrix(pred.class.valid, data.valid$Y) # confusion matrix for validatio
 ## Detection Prevalence   0.3733   0.1494  0.13203   0.2000  0.14528
 ## Balanced Accuracy      0.7320   0.6337  0.61474   0.7000  0.70939</code></pre>
 <pre class="r"><code># The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.7 to 0.9.</code></pre>
-<div id="model-b-linear-discriminant-analysis-lda-using-lda-function-in-the-mass-package" class="section level5">
-<h5>Model b: Linear discriminant analysis (LDA) using lda function in the MASS package</h5>
+</div>
+<div id="model-b-linear-discriminant-analysis-lda-using-lda-function-in-the-mass-package" class="section level3">
+<h3>Model b: Linear discriminant analysis (LDA) using lda function in the MASS package</h3>
 <pre class="r"><code>library(MASS)
 model.lda.train &lt;- lda(Y ~ ., data.train)
 pred.lda.train &lt;- predict(model.lda.train)$class 
@@ -363,8 +367,8 @@ confusionMatrix(pred.lda.valid, data.valid$Y) # confusion matrix for validation 
 ## Balanced Accuracy      0.7259  0.63804  0.61129  0.69351  0.71407</code></pre>
 <pre class="r"><code># The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.8 to 0.9.</code></pre>
 </div>
-<div id="model-c-quadratic-discriminant-analysis-qda-using-qda-function-in-the-mass-package" class="section level5">
-<h5>Model c: Quadratic discriminant analysis (QDA) using qda function in the MASS package</h5>
+<div id="model-c-quadratic-discriminant-analysis-qda-using-qda-function-in-the-mass-package" class="section level3">
+<h3>Model c: Quadratic discriminant analysis (QDA) using qda function in the MASS package</h3>
 <pre class="r"><code>model.qda.train &lt;- qda(Y ~ ., data.train)
 pred.qda.train &lt;- predict(model.qda.train)$class 
 confusionMatrix(pred.qda.train, data.train$Y) # confusion matrix for training data</code></pre>
@@ -437,8 +441,8 @@ confusionMatrix(pred.qda.valid, data.valid$Y) # confusion matrix for validation 
 ## Balanced Accuracy      0.7259  0.63804  0.61129  0.69351  0.71407</code></pre>
 <pre class="r"><code># The prediction accurancy for the five classes ranges from ~ 0.6 to ~ 0.7; sensitivity ranges from 0.3 to 0.7; specificity ranges from 0.8 to 0.9.</code></pre>
 </div>
-<div id="model-d-random-forest-rf-using-randomforest-function" class="section level5">
-<h5>Model d: Random forest (RF) using randomForest function</h5>
+<div id="model-d-random-forest-rf-using-randomforest-function" class="section level3">
+<h3>Model d: Random forest (RF) using randomForest function</h3>
 <p>Random Forest (<code>RF</code>) is one of the tree-based methods for regression or classification which involve stratifying or segmenting the predictor space into a number of simple regions. The basic idea of these tree-based methods is to partition the space and identify some representative centroids. The random forests algorithm is shown below. Let N be the number of observations and assume that the response variable is binary:</p>
 <ul>
 <li>Take a random sample of size N with replacement from the data (bootstrap sample).</li>
@@ -526,9 +530,8 @@ confusionMatrix(pred.rf.valid, data.valid$Y) # confusion matrix for validation d
 ## Balanced Accuracy      0.9805   0.9729   0.9689   0.9665   0.9860</code></pre>
 <pre class="r"><code># The prediction accurancy for the five classes ranges from ~ 0.97 to ~ 0.99; sensitivity ranges from 0.94 to 0.97; specificity ranges from 0.98 to 0.99.</code></pre>
 </div>
-</div>
-<div id="conclusion" class="section level4">
-<h4>Conclusion</h4>
+<div id="conclusion" class="section level3">
+<h3>Conclusion</h3>
 <pre class="r"><code>#### Results summary for the validation dataset for model selection
 # Method: Accuracy    Sensitivity   Specificity
 # MR:      61~73%       32~71%       76~93%
@@ -536,6 +539,7 @@ confusionMatrix(pred.rf.valid, data.valid$Y) # confusion matrix for validation d
 # QDA:     61~73%       39~68%       77~94%
 # RF:      97~99%       94~97%       98~99% (BEST)</code></pre>
 <p>From the above summary table, we can clearly see that the <strong>random forest</strong> method yields significantly higher prediction accuracy, sensitivity and specificity, thus, I would prefer to using this method to predict future potential manners with new testing data. The other three methods actually are not that bad as their accuracies are higher than 60% and specificities are higher than 75%; however, their sensitivities are low for some classes (~30%).</p>
+</div>
 </div>
 
 
