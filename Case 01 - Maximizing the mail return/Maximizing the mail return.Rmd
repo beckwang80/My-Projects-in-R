@@ -1,0 +1,428 @@
+---
+title: "Final Team Project"
+author: "Evan Agovino, Haiteng Xu, and Xiang Wang"
+date: "December 14, 2015"
+output: html_document
+---
+
+
+### Exploratory Data Analysis
+```{r}
+charity <- read.csv("charity.csv"); str(charity)
+charity1 <- charity[, c(7:8, 10:21, 24)] 
+## Matrix scatter plot using ggpairs() 
+library(GGally); # ggpairs(charity1, colour='part') 
+## it takes long time to generate the above plot, so we put a # to avoid running this code and save the plot separately. This plot can give us a lot information. For the reason of multi-collinearity, we can discard variables "incm, inca, plow" as these three variables are all strongly correlated with avhv and they are correlated to each other. In addition, we can discard tgif as it strongly correlates to npro; we can also discard lgif and agif as they both strongly correlate to rgif. The predictor variables to be used are: reg1, reg2, reg3, reg4, home, chld, hinc, genf, wrat, avhv, npro, rgif, tdon, tlag.
+
+## We can also check the distribution/normality of each variable by train, validation or test data through the lower part of the plot. Of the above chosen variables, avhv, rgif and tlag are skewed to the right. After log-transformation, they are normally distributed. chld and wrat are not normally distributed, but I am NOT thinking to transform them now since they are more categorical/ordinal. Transformation does not help too much.
+
+## Below are the histograms after transformation. All look normally distributed.
+hist(log(charity$avhv)) 
+hist(log(charity$rgif))
+hist(log(charity$tlag)) 
+
+# transformations
+charity.t <- charity
+charity.t$avhv <- log(charity.t$avhv) 
+charity.t$rgif <- log(charity.t$rgif)
+charity.t$tlag <- log(charity.t$tlag)
+
+# I would not make any change to the following part because I think it is better we come up with the same dataset names and variables.
+# set up data for analysis
+data.train <- charity.t[charity$part=="train",]
+x.train <- data.train[,2:21]
+c.train <- data.train[,22] # donr
+n.train.c <- length(c.train) # 3984
+y.train <- data.train[c.train==1,23] # damt for observations with donr=1
+n.train.y <- length(y.train) # 1995
+
+data.valid <- charity.t[charity$part=="valid",]
+x.valid <- data.valid[,2:21]
+c.valid <- data.valid[,22] # donr
+n.valid.c <- length(c.valid) # 2018
+y.valid <- data.valid[c.valid==1,23] # damt for observations with donr=1
+n.valid.y <- length(y.valid) # 999
+
+data.test <- charity.t[charity$part=="test",]
+n.test <- dim(data.test)[1] # 2007
+x.test <- data.test[,2:21]
+
+x.train.mean <- apply(x.train, 2, mean)
+x.train.sd <- apply(x.train, 2, sd)
+x.train.std <- t((t(x.train)-x.train.mean)/x.train.sd) # standardize to have zero mean and unit sd
+apply(x.train.std, 2, mean) # check zero mean
+apply(x.train.std, 2, sd) # check unit sd
+data.train.std.c <- data.frame(x.train.std, donr=c.train) # to classify donr
+data.train.std.y <- data.frame(x.train.std[c.train==1,], damt=y.train) # to predict damt when donr=1
+
+x.valid.std <- t((t(x.valid)-x.train.mean)/x.train.sd) # standardize using training mean and sd
+data.valid.std.c <- data.frame(x.valid.std, donr=c.valid) # to classify donr
+data.valid.std.y <- data.frame(x.valid.std[c.valid==1,], damt=y.valid) # to predict damt when donr=1
+
+x.test.std <- t((t(x.test)-x.train.mean)/x.train.sd) # standardize using training mean and sd
+data.test.std <- data.frame(x.test.std)
+```
+
+### Classification modeling
+
+#### Model 1: linear discriminant analysis (LDA)
+```{r}
+library(MASS)
+model.lda <- lda(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.c) # include additional terms on the fly using I()
+# Note: strictly speaking, LDA should not be used with qualitative predictors, but in practice it often is if the goal is simply to find a good predictive model
+post.valid.lda <- predict(model.lda, data.valid.std.c)$posterior[,2] # n.valid.c post probs
+# calculate ordered profit function using average donation = $14.50 and mailing cost = $2
+profit.lda <- cumsum(14.5*c.valid[order(post.valid.lda, decreasing=T)]-2)
+plot(profit.lda) # see how profits change as more mailings are made
+n.mail.valid <- which.max(profit.lda) # number of mailings that maximizes profits
+c(n.mail.valid, max(profit.lda)) # report number of mailings and maximum profit; 1345, 11621.5
+
+cutoff.lda <- sort(post.valid.lda, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
+chat.valid.lda <- ifelse(post.valid.lda > cutoff.lda, 1, 0) # mail to everyone above the cutoff
+table(chat.valid.lda, c.valid) # classification table
+#               c.valid
+#chat.valid.lda    0   1
+#              0 661  12
+#              1 358 987
+# check n.mail.valid = 358+987 = 1345
+# check profit = 14.5*987-2*1345 = 11621.5
+```
+
+#### Model 2: logistic regression (LR) ###
+```{r}
+model.log <- glm(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.c, family=binomial("logit"))
+
+post.valid.log <- predict(model.log, data.valid.std.c, type="response") # n.valid post probs
+
+# calculate ordered profit function using average donation = $14.50 and mailing cost = $2
+profit.log <- cumsum(14.5*c.valid[order(post.valid.log, decreasing=T)]-2)
+plot(profit.log) # see how profits change as more mailings are made
+n.mail.valid <- which.max(profit.log) # number of mailings that maximizes profits
+c(n.mail.valid, max(profit.log)) # report number of mailings and maximum profit; 1273, 11635
+
+cutoff.log <- sort(post.valid.log, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
+chat.valid.log <- ifelse(post.valid.log > cutoff.log, 1, 0) # mail to everyone above the cutoff
+table(chat.valid.log, c.valid) # classification table
+#               c.valid
+#chat.valid.log    0   1
+#              0 724  21
+#              1 295 978
+# check n.mail.valid = 295+978 = 1273
+# check profit = 14.5*978-2*1273 = 11635
+```
+
+#### Model 3:  Quadratic discriminant analysis (QDA) ###
+```{r}
+model.qda <- qda(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.c) 
+post.valid.qda <- predict(model.qda, data.valid.std.c)$posterior[,2] # n.valid.c post probs
+
+# calculate ordered profit function using average donation = $14.50 and mailing cost = $2
+profit.qda <- cumsum(14.5*c.valid[order(post.valid.qda, decreasing=T)]-2)
+plot(profit.qda) # see how profits change as more mailings are made
+n.mail.valid <- which.max(profit.qda) # number of mailings that maximizes profits
+c(n.mail.valid, max(profit.qda)) # report number of mailings and maximum profit  1391.0 11210.5
+
+cutoff.qda <- sort(post.valid.qda, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
+chat.valid.qda <- ifelse(post.valid.qda>cutoff.qda, 1, 0) # mail to everyone above the cutoff
+table(chat.valid.qda, c.valid) # classification table
+#               c.valid
+#chat.valid.qda    0   1
+#              0 593  34
+#              1 426 965
+# check n.mail.valid = 426+965 = 1391
+# check profit = 14.5*965-2*1391 = 11210.5
+```
+
+#### Model 4: K-Nearest Neighbors (KNN)
+```{r}
+library(class)
+mer <- rep(NA, 30) # misclassification error rates based on leave-one-out cross-validation
+set.seed(2014) # seed must be set because R randomly breaks ties
+for (i in 1:30) mer[i] <- sum((c.train-(c(knn.cv(train=x.train, cl=c.train, k=i))-1))^2)/n.train.c
+which.min(mer) # minimum occurs at k=29
+
+set.seed(2014)
+post.valid.knn <- knn(data.train.std.c[,-21], data.valid.std.c[,-21], data.train.std.c[,21], k=29, prob=T)
+
+# calculate ordered profit function using average donation = $14.50 and mailing cost = $2
+profit.knn <- cumsum(14.5*c.valid[order(post.valid.knn, decreasing=T)]-2)
+plot(profit.knn) # see how profits change as more mailings are made
+n.mail.valid <- which.max(profit.knn) # number of mailings that maximizes profits
+c(n.mail.valid, max(profit.knn)) # report number of mailings and maximum profit; 1305, 11208.5
+```
+
+#### Model 5: Logistic regression generalized additive model (GAM) with each predictor modeled using a smoothing spline with 5 degrees of freedom
+```{r}
+library(gam)
+model.gam <- gam(donr ~ reg1 + reg2 + reg3 + reg4 + home + s(chld,df=5) + s(hinc,df=5) + genf + s(wrat,df=5) + s(avhv,df=5) + s(incm,df=5) + s(inca,df=5) + s(plow,df=5) + s(npro,df=5) + s(tgif,df=5) + s(lgif,df=5) + s(rgif,df=5) + s(tdon,df=5) + s(tlag,df=5) + s(agif,df=5), data.train.std.c, family=binomial)
+summary(model.gam)
+
+#remove spline for linear predictors
+model.gam2 <- gam(donr ~ reg1 + reg2 + reg3 + reg4 + home + s(chld,df=5) + s(hinc,df=5) + genf + s(wrat,df=5) + avhv + s(incm,df=5) + s(inca,df=5) + s(plow,df=5) + npro + s(tgif,df=5) + lgif + rgif + s(tdon,df=5) + s(tlag,df=5) + agif, data.train.std.c, family=binomial)
+summary(model.gam2)
+
+#remove non-significant predictors
+model.gam3 <- gam(donr ~ reg1 + reg2 + reg3 + reg4 + home + s(chld,df=5) + s(hinc,df=5) +  s(wrat,df=5) + avhv + s(incm,df=5) + s(inca,df=5) + s(plow,df=5) + npro + s(tgif,df=5) + s(tdon,df=5) + s(tlag,df=5), data.train.std.c, family=binomial)
+summary(model.gam3)
+post.valid.gam <- predict(model.gam3, data.valid.std.c, type="response") # n.valid.c post probs
+
+# calculate ordered profit function using average donation = $14.50 and mailing cost = $2
+profit.gam <- cumsum(14.5*c.valid[order(post.valid.gam, decreasing=T)]-2)
+plot(profit.gam) # see how profits change as more mailings are made
+n.mail.valid <- which.max(profit.gam) # number of mailings that maximizes profits
+c(n.mail.valid, max(profit.gam)) # report number of mailings and maximum profit 1237 11939
+
+cutoff.gam <- sort(post.valid.gam, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
+chat.valid.gam <- ifelse(post.valid.gam>cutoff.gam, 1, 0) # mail to everyone above the cutoff
+table(chat.valid.gam, c.valid) # classification table
+#               c.valid
+#chat.valid.gam    0   1
+#              0 776   5
+#              1 243 994
+# check n.mail.valid = 243+994 = 1237
+# check profit = 14.5*994-2*1237 = 11939
+```
+
+#### Model 6: Regression Tree
+```{r}
+library(tree)
+tree.charity =tree(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + incm + inca + plow + npro + tgif + lgif + rgif + tdon + tlag + agif ,data.train.std.c)
+summary(tree.charity)
+plot(tree.charity); text(tree.charity ,pretty=0)
+tree.pred <- predict (tree.charity ,data.valid.std.c)
+
+profit.tree <- cumsum(14.5*c.valid[order(tree.pred, decreasing=T)]-2)
+plot(profit.tree) # see how profits change as more mailings are made
+n.mail.valid <- which.max(profit.tree) # number of mailings that maximizes profits
+c(n.mail.valid, max(profit.tree)) # report number of mailings and maximum profit  1391 11312
+
+cutoff.tree <- sort(tree.pred, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
+chat.valid.tree <- ifelse(tree.pred>cutoff.tree, 1, 0) # mail to everyone above the cutoff
+table(chat.valid.tree, c.valid) # classification table
+#               c.valid
+#chat.valid.tree    0   1
+#               0 645  37
+#               1 374 962
+# check: 374+962 = 1336
+# check: 14.5*962 - 2*1336 = 11277
+```
+
+#### Model 7: Random forest (RF)
+```{r}
+library(randomForest); set.seed(1)
+model.rf <- randomForest(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.c, importance=TRUE)
+importance(model.rf) # chld, home, reg2, wrat are among the most influence factors.
+post.valid.rf <- predict(model.rf, data.valid.std.c) # n.valid post probs
+
+# calculate ordered profit function using average donation = $14.50 and mailing cost = $2
+profit.rf <- cumsum(14.5*c.valid[order(post.valid.rf, decreasing=T)]-2)
+plot(profit.rf) # see how profits change as more mailings are made
+n.mail.valid <- which.max(profit.rf) # number of mailings that maximizes profits
+c(n.mail.valid, max(profit.rf)) # report number of mailings and maximum profit; 1256, 11799.5
+
+cutoff.rf <- sort(post.valid.rf, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
+chat.valid.rf <- ifelse(post.valid.rf > cutoff.rf, 1, 0) # mail to everyone above the cutoff
+table(chat.valid.rf, c.valid) # classification table
+#               c.valid
+#chat.valid.rf     0   1
+#              0 750  12
+#              1 269 987
+# check n.mail.valid = 269+987 = 1256
+# check profit = 14.5*987-2*1256 = 11799.5
+```
+
+#### Model 8: Support Vector Machine (SVM)
+```{r}
+library(e1071)
+svm.charity <- svm(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + incm + inca + plow + npro + tgif + lgif + rgif + tdon + tlag + agif, data=data.train.std.c, kernel="linear",cost=10)
+summary(svm.charity)
+svm.pred <- predict (svm.charity ,data.valid.std.c)
+
+profit.svm <- cumsum(14.5*c.valid[order(svm.pred, decreasing=T)]-2)
+plot(profit.svm) # see how profits change as more mailings are made
+n.mail.valid <- which.max(profit.svm) # number of mailings that maximizes profits
+c(n.mail.valid, max(profit.svm)) # report number of mailings and maximum profit 1314 11596.5
+
+cutoff.svm <- sort(svm.pred, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
+chat.valid.svm <- ifelse(svm.pred>cutoff.svm, 1, 0) # mail to everyone above the cutoff
+table(chat.valid.svm, c.valid) # classification table
+#               c.valid
+#chat.valid.svm     0   1
+#              0  686  18
+#              1  333 981
+# Check 333+981 = 1314
+# Check 14.5*981 - 2*1314 = 11596.5
+
+
+#### Results
+# n.mail Profit  Model
+# 1345   11621.5 LDA
+# 1273   11635   LR
+# 1391   11210.5 QDA
+# 1305   11208.5 KNN
+# 1237   11939   GAM (best)
+# 1391   11312   TREE
+# 1314   11799.5 RF 
+# 1314   11596.5 SVM
+```
+
+### Prediction modeling
+My understanding is that multi-colinearity should be very careful for building regression models; but for classification models, it is not that important. So, I removed those variables which are correlated strongly.
+
+#### Model 1: Least squares regression
+```{r}
+model.ls <- lm(damt ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.y)
+summary(model.ls) # we can see some predictors are not significant; so I drop them (reg1, reg2, wrat and tlag); also note that the predictor erro and std error will not change much after dropping them
+model.ls <- lm(damt ~ reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + avhv + npro + rgif + tdon, data.train.std.y)
+summary(model.ls)
+pred.valid.ls <- predict(model.ls, data.valid.std.y) # validation predictions
+mean((y.valid - pred.valid.ls)^2) # mean prediction error 1.880
+sd((y.valid - pred.valid.ls)^2)/sqrt(n.valid.y) # std error 0.169
+
+# Check assumptions
+par(mfrow=c(2,2)); plot(model.ls)               
+library(car); vif(model.ls) 
+# all ok around 1 - multicollinearity not an issue 
+```
+
+#### Model 2: Stepwise regression using AIC
+```{r}
+library(MASS)
+model.AIC <- lm(damt ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.y)
+step <- stepAIC(model.AIC, direction="both")
+step$anova # display results; note that the model with smallest AIC is exactly the same as model 1
+summary(step) 
+model.AIC <- lm(damt ~ reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + avhv + npro + rgif + tdon, data.train.std.y)
+summary(model.AIC)
+pred.valid.aic <- predict(model.AIC, data.valid.std.y) # validation predictions
+mean((y.valid - pred.valid.aic)^2) # mean prediction error 1.872
+sd((y.valid - pred.valid.aic)^2)/sqrt(n.valid.y) # std error 0.169
+
+# Check assumptions
+par(mfrow=c(2,2)); plot(model.AIC)               
+library(car); vif(model.AIC)
+# all ok around 1 - multicollinearity not an issue 
+```
+
+#### Model 3: Best subset selection using BIC
+```{r}
+library(leaps)
+BIC <- regsubsets(damt ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.y, nvmax=10) 
+summary(BIC)                                                             
+# determine the number of variables with the lowest BIC value
+which.min(summary(BIC)$bic) 
+coef(BIC, id=8)                                   
+
+# Create the function to use predict() with regsubsets 
+predict.regsubsets=function(object,newdata,id,...){
+   form=as.formula(object$call[[2]])
+   mat=model.matrix(form,newdata)
+   coefi=coef(object,id=id)
+   xvars=names(coefi)
+   mat[,xvars]%*%coefi
+}
+
+pred.BIC <- predict(BIC, data.valid.std.y, id=8)  # validation predictions       
+mean((y.valid-pred.BIC)^2) # mean prediction error 1.895                      
+sd((y.valid-pred.BIC)^2)/sqrt(n.valid.y) # std error 0.170    
+plot(BIC, scale='bic')
+```
+
+#### Model 4: Ridge regression using 10-fold cross-validation
+```{r}
+library(glmnet) # The package "glmnet" was used to perform Ridge Regression and Lasso
+set.seed(2015) 
+x <- as.matrix(data.train.std.y[,1:20]) 
+y <- as.matrix(data.train.std.y[,21])
+valid.x <- as.matrix(data.valid.std.y[,1:20]) 
+valid.y <- as.matrix(data.valid.std.y[,21])
+cv.out <- cv.glmnet(x, y, alpha=0, nfolds=10)
+bestlambda <- cv.out$lambda.1se; bestlambda
+ridge <- glmnet(x, y, alpha=0) 
+pred.ridge <- predict(ridge, s=bestlambda, valid.x)
+mean((valid.y-pred.ridge)^2) # mean prediction error 1.832
+sd((valid.y-pred.ridge)^2)/sqrt(n.valid.y) # std error 0.173
+plot(cv.out)
+```
+
+#### Model 5: Lasso regression using 10-fold cross-validation ###
+```{r}
+set.seed(2015)
+cv.out <- cv.glmnet(x, y, alpha=1, nfolds=10)
+bestlambda <- cv.out$lambda.1se; bestlambda
+lasso <- glmnet(x, y, alpha=1)
+pred.lasso <- predict(lasso, s=bestlambda, valid.x, exact=T) 
+mean((valid.y-pred.lasso)^2) # mean prediction error 1.819
+sd((valid.y-pred.lasso)^2)/sqrt(n.valid.y) # std error 0.164 
+plot(cv.out)
+```
+
+#### Model 6: Principal Components Regression ###
+```{r}
+library(pls)
+set.seed(2015)
+pcr.fit=pcr(damt ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data=data.train.std.y, validation="CV")
+summary(pcr.fit)
+pred.valid.pcr <- predict(pcr.fit, data.valid.std.y,ncomp=15)
+mean((y.valid - pred.valid.pcr)^2) # mean prediction error 1.869997
+sd((y.valid - pred.valid.pcr)^2)/sqrt(n.valid.y) # std error 0.1689471
+```
+
+#### Model 7: Partial Least Squares ###
+```{r}
+set.seed(2015)
+pls.fit=plsr(damt ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data=data.train.std.y, validation="CV")
+summary(pls.fit)
+pred.valid.pls <- predict(pls.fit, data.valid.std.y,ncomp=5)
+mean((y.valid - pred.valid.pls)^2) # mean prediction error 1.873125
+sd((y.valid - pred.valid.pls)^2)/sqrt(n.valid.y) # std error 0.1693118
+
+# Results
+# MPE     sd      Model
+# 1.880   0.169   LS
+# 1.880   0.169   Stepwise
+# 1.895   0.170   Best Subset
+# 1.832   0.173   Ridge
+# 1.819   0.164   Lasso (Best)
+# 1.870   0.169   PCR
+# 1.873   0.169   PLS
+```
+
+### Code to generate the submitted CSV file
+```{r, eval=FALSE}
+# For the classification models, select model.gam3 since it has maximum profit in the validation sample
+post.test <- predict(model.gam3, data.test.std, type="response") # post probs for test data
+# Oversampling adjustment for calculating number of mailings for test set
+n.mail.valid <- which.max(profit.gam)
+tr.rate <- .1 # typical response rate is .1
+vr.rate <- .5 # whereas validation response rate is .5
+adj.test.1 <- (n.mail.valid/n.valid.c)/(vr.rate/tr.rate) # adjustment for mail yes
+adj.test.0 <- ((n.valid.c-n.mail.valid)/n.valid.c)/((1-vr.rate)/(1-tr.rate)) # adjustment for mail no
+adj.test <- adj.test.1/(adj.test.1+adj.test.0) # scale into a proportion
+n.mail.test <- round(n.test*adj.test, 0) # calculate number of mailings for test set
+
+cutoff.test <- sort(post.test, decreasing=T)[n.mail.test+1] # set cutoff based on n.mail.test
+chat.test <- ifelse(post.test>cutoff.test, 1, 0) # mail to everyone above the cutoff
+table(chat.test)
+#    0    1 
+# 1707  300
+# based on this model we'll mail to the 300 highest posterior probabilities
+
+
+# For the prediction models, select the Lasso model since it has minimum mean prediction error in the validation sample 
+data.test.std <- as.matrix(data.test.std)
+yhat.test <- predict(lasso, s=bestlambda, newx = data.test.std, exact=T) # test predictions 
+
+# Save final results for both classification and regression
+length(chat.test) # check length = 2007
+length(yhat.test) # check length = 2007
+chat.test[1:10] # check this consists of 0s and 1s
+yhat.test[1:10] # check this consists of plausible predictions of damt
+
+ip <- data.frame(chat=chat.test, yhat=yhat.test) 
+write.csv(ip, file="/Users/yq/Dropbox/ip.csv", row.names=FALSE) # use group member initials for file name
+
+# submit the csv file in Angel for evaluation based on actual test donr and damt values
+```
+
+
