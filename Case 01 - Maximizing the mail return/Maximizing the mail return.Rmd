@@ -1,10 +1,43 @@
 ---
-title: "Final Team Project"
-author: "Evan Agovino, Haiteng Xu, and Xiang Wang"
+title: "Maximizing mail return rates in a charitable organization – Applied Data Mining & Statistical Learning"
+author: "Xiang Wang"
 date: "December 14, 2015"
 output: html_document
 ---
 
+### Introduction
+A charitable organization wishes to develop a data-mining model to improve the cost-effectiveness of their direct marketing campaigns to previous donors. According to their recent mailing records, the typical overall response rate is 10%. Out of those who respond (donate), the average donation is $14.50. Each mailing, which includes a gift of personalized address labels and assortments of cards and envelopes, costs $2 to produce and send. Since expected profit from each mailing is 14.5  0.1 – 2 = –$0.55, it is not cost effective to mail everyone. 
+
+We would like to develop a classification model using data from the most recent campaign that can effectively capture likely donors so that the expected net profit is maximized. The entire dataset consists of 3984 training observations, 2018 validation observations, and 2007 test observations. Weighted sampling has been used, over- representing the responders so that the training and validation samples have approximately equal numbers of donors and non-donors. The response rate in the test sample has the more typical 10% response rate. We would also like to build a model to predict donation amounts for donors – the data for this will consist of the records for donors only. The data are available in the file “charity.csv”:
+
+- ID number
+- REG1, REG2, REG3, REG4: Region (There are five geographic regions; only four are needed for analysis since if a potential donor falls into none of the four he or she must be in the other region. Inclusion of all five indicator variables would be redundant and cause some modeling techniques to fail. A “1” indicates the potential donor belongs to this region.)
+- HOME: (1 = homeowner, 0 = not a homeowner)
+- CHLD: Number of children
+- HINC: Household income (7 categories)
+- GENF: Gender (0 = Male, 1 = Female)
+- WRAT: Wealth Rating (Wealth rating uses median family income and
+population statistics from each area to index relative wealth within each state. The segments are denoted 0-9, with 9 being the highest wealth group and 0 being the lowest.)
+- AVHV: Average Home Value in potential donor's neighborhood in $ thousands
+- INCM: Median Family Income in potential donor's neighborhood in $ thousands
+- INCA: Average Family Income in potential donor's neighborhood in $ thousands
+- PLOW: Percent categorized as “low income” in potential donor's neighborhood
+- NPRO: Lifetime number of promotions received to date
+- TGIF: Dollar amount of lifetime gifts to date
+- LGIF: Dollar amount of largest gift to date
+- RGIF: Dollar amount of most recent gift
+- TDON: Number of months since last donation
+- TLAG: Number of months between first and second gift
+- AGIF: Average dollar amount of gifts to date
+- DONR: Classification Response Variable (1 = Donor, 0 = Non-donor)
+- DAMT: Prediction Response Variable (Donation Amount in $)
+
+The DONR and DAMT variables are set to “NA” for the test set. 
+
+### Project Objectives
+1. Develop a **classification model** for the DONR variable using any of the variables as predictors (except ID and DAMT). Fit all candidate models using the training data and evaluate the fitted models using the validation data. Use “maximum profit” as the evaluation criteria and use your final selected classification model to classify DONR responses in the test dataset.
+
+2. Develop a **prediction model** for the DAMT variable using any of the variables as predictors (except ID and DONR). Use only the data records for which DONR=1. Fit all candidate models using the training data and evaluate the fitted models using the validation data. Use “mean prediction error” as the evaluation criteria and use your final selected prediction model to predict DAMT responses in the test dataset.
 
 ### Exploratory Data Analysis
 ```{r}
@@ -12,7 +45,7 @@ charity <- read.csv("charity.csv"); str(charity)
 charity1 <- charity[, c(7:8, 10:21, 24)] 
 ## Matrix scatter plot using ggpairs() 
 library(GGally); # ggpairs(charity1, colour='part') 
-## it takes long time to generate the above plot, so we put a # to avoid running this code and save the plot separately. This plot can give us a lot information. For the reason of multi-collinearity, we can discard variables "incm, inca, plow" as these three variables are all strongly correlated with avhv and they are correlated to each other. In addition, we can discard tgif as it strongly correlates to npro; we can also discard lgif and agif as they both strongly correlate to rgif. The predictor variables to be used are: reg1, reg2, reg3, reg4, home, chld, hinc, genf, wrat, avhv, npro, rgif, tdon, tlag.
+## This plot can give us a lot information. For the reason of multi-collinearity, we can discard variables "incm, inca, plow" as these three variables are all strongly correlated with avhv and they are correlated to each other. In addition, we can discard tgif as it strongly correlates to npro; we can also discard lgif and agif as they both strongly correlate to rgif. The predictor variables to be used are: reg1, reg2, reg3, reg4, home, chld, hinc, genf, wrat, avhv, npro, rgif, tdon, tlag.
 
 ## We can also check the distribution/normality of each variable by train, validation or test data through the lower part of the plot. Of the above chosen variables, avhv, rgif and tlag are skewed to the right. After log-transformation, they are normally distributed. chld and wrat are not normally distributed, but I am NOT thinking to transform them now since they are more categorical/ordinal. Transformation does not help too much.
 
@@ -27,7 +60,6 @@ charity.t$avhv <- log(charity.t$avhv)
 charity.t$rgif <- log(charity.t$rgif)
 charity.t$tlag <- log(charity.t$tlag)
 
-# I would not make any change to the following part because I think it is better we come up with the same dataset names and variables.
 # set up data for analysis
 data.train <- charity.t[charity$part=="train",]
 x.train <- data.train[,2:21]
@@ -80,20 +112,15 @@ c(n.mail.valid, max(profit.lda)) # report number of mailings and maximum profit;
 cutoff.lda <- sort(post.valid.lda, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
 chat.valid.lda <- ifelse(post.valid.lda > cutoff.lda, 1, 0) # mail to everyone above the cutoff
 table(chat.valid.lda, c.valid) # classification table
-#               c.valid
-#chat.valid.lda    0   1
-#              0 661  12
-#              1 358 987
 # check n.mail.valid = 358+987 = 1345
 # check profit = 14.5*987-2*1345 = 11621.5
 ```
 
-#### Model 2: logistic regression (LR) ###
+#### Model 2: logistic regression (LR)
 ```{r}
 model.log <- glm(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.c, family=binomial("logit"))
 
 post.valid.log <- predict(model.log, data.valid.std.c, type="response") # n.valid post probs
-
 # calculate ordered profit function using average donation = $14.50 and mailing cost = $2
 profit.log <- cumsum(14.5*c.valid[order(post.valid.log, decreasing=T)]-2)
 plot(profit.log) # see how profits change as more mailings are made
@@ -103,19 +130,14 @@ c(n.mail.valid, max(profit.log)) # report number of mailings and maximum profit;
 cutoff.log <- sort(post.valid.log, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
 chat.valid.log <- ifelse(post.valid.log > cutoff.log, 1, 0) # mail to everyone above the cutoff
 table(chat.valid.log, c.valid) # classification table
-#               c.valid
-#chat.valid.log    0   1
-#              0 724  21
-#              1 295 978
 # check n.mail.valid = 295+978 = 1273
 # check profit = 14.5*978-2*1273 = 11635
 ```
 
-#### Model 3:  Quadratic discriminant analysis (QDA) ###
+#### Model 3:  Quadratic discriminant analysis (QDA)
 ```{r}
 model.qda <- qda(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data.train.std.c) 
 post.valid.qda <- predict(model.qda, data.valid.std.c)$posterior[,2] # n.valid.c post probs
-
 # calculate ordered profit function using average donation = $14.50 and mailing cost = $2
 profit.qda <- cumsum(14.5*c.valid[order(post.valid.qda, decreasing=T)]-2)
 plot(profit.qda) # see how profits change as more mailings are made
@@ -125,10 +147,6 @@ c(n.mail.valid, max(profit.qda)) # report number of mailings and maximum profit 
 cutoff.qda <- sort(post.valid.qda, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
 chat.valid.qda <- ifelse(post.valid.qda>cutoff.qda, 1, 0) # mail to everyone above the cutoff
 table(chat.valid.qda, c.valid) # classification table
-#               c.valid
-#chat.valid.qda    0   1
-#              0 593  34
-#              1 426 965
 # check n.mail.valid = 426+965 = 1391
 # check profit = 14.5*965-2*1391 = 11210.5
 ```
@@ -143,7 +161,6 @@ which.min(mer) # minimum occurs at k=29
 
 set.seed(2014)
 post.valid.knn <- knn(data.train.std.c[,-21], data.valid.std.c[,-21], data.train.std.c[,21], k=29, prob=T)
-
 # calculate ordered profit function using average donation = $14.50 and mailing cost = $2
 profit.knn <- cumsum(14.5*c.valid[order(post.valid.knn, decreasing=T)]-2)
 plot(profit.knn) # see how profits change as more mailings are made
@@ -151,7 +168,7 @@ n.mail.valid <- which.max(profit.knn) # number of mailings that maximizes profit
 c(n.mail.valid, max(profit.knn)) # report number of mailings and maximum profit; 1305, 11208.5
 ```
 
-#### Model 5: Logistic regression generalized additive model (GAM) with each predictor modeled using a smoothing spline with 5 degrees of freedom
+#### Model 5: Generalized additive model (GAM) with each predictor modeled using a smoothing spline with 5 degrees of freedom
 ```{r}
 library(gam)
 model.gam <- gam(donr ~ reg1 + reg2 + reg3 + reg4 + home + s(chld,df=5) + s(hinc,df=5) + genf + s(wrat,df=5) + s(avhv,df=5) + s(incm,df=5) + s(inca,df=5) + s(plow,df=5) + s(npro,df=5) + s(tgif,df=5) + s(lgif,df=5) + s(rgif,df=5) + s(tdon,df=5) + s(tlag,df=5) + s(agif,df=5), data.train.std.c, family=binomial)
@@ -175,10 +192,6 @@ c(n.mail.valid, max(profit.gam)) # report number of mailings and maximum profit 
 cutoff.gam <- sort(post.valid.gam, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
 chat.valid.gam <- ifelse(post.valid.gam>cutoff.gam, 1, 0) # mail to everyone above the cutoff
 table(chat.valid.gam, c.valid) # classification table
-#               c.valid
-#chat.valid.gam    0   1
-#              0 776   5
-#              1 243 994
 # check n.mail.valid = 243+994 = 1237
 # check profit = 14.5*994-2*1237 = 11939
 ```
@@ -199,10 +212,6 @@ c(n.mail.valid, max(profit.tree)) # report number of mailings and maximum profit
 cutoff.tree <- sort(tree.pred, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
 chat.valid.tree <- ifelse(tree.pred>cutoff.tree, 1, 0) # mail to everyone above the cutoff
 table(chat.valid.tree, c.valid) # classification table
-#               c.valid
-#chat.valid.tree    0   1
-#               0 645  37
-#               1 374 962
 # check: 374+962 = 1336
 # check: 14.5*962 - 2*1336 = 11277
 ```
@@ -223,10 +232,6 @@ c(n.mail.valid, max(profit.rf)) # report number of mailings and maximum profit; 
 cutoff.rf <- sort(post.valid.rf, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
 chat.valid.rf <- ifelse(post.valid.rf > cutoff.rf, 1, 0) # mail to everyone above the cutoff
 table(chat.valid.rf, c.valid) # classification table
-#               c.valid
-#chat.valid.rf     0   1
-#              0 750  12
-#              1 269 987
 # check n.mail.valid = 269+987 = 1256
 # check profit = 14.5*987-2*1256 = 11799.5
 ```
@@ -236,7 +241,7 @@ table(chat.valid.rf, c.valid) # classification table
 library(e1071)
 svm.charity <- svm(donr ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + incm + inca + plow + npro + tgif + lgif + rgif + tdon + tlag + agif, data=data.train.std.c, kernel="linear",cost=10)
 summary(svm.charity)
-svm.pred <- predict (svm.charity ,data.valid.std.c)
+svm.pred <- predict (svm.charity, data.valid.std.c)
 
 profit.svm <- cumsum(14.5*c.valid[order(svm.pred, decreasing=T)]-2)
 plot(profit.svm) # see how profits change as more mailings are made
@@ -246,15 +251,14 @@ c(n.mail.valid, max(profit.svm)) # report number of mailings and maximum profit 
 cutoff.svm <- sort(svm.pred, decreasing=T)[n.mail.valid+1] # set cutoff based on n.mail.valid
 chat.valid.svm <- ifelse(svm.pred>cutoff.svm, 1, 0) # mail to everyone above the cutoff
 table(chat.valid.svm, c.valid) # classification table
-#               c.valid
-#chat.valid.svm     0   1
-#              0  686  18
-#              1  333 981
 # Check 333+981 = 1314
 # Check 14.5*981 - 2*1314 = 11596.5
+```
 
+```{r}
+# We use “maximum profit” as the evaluation criteria to select the final classification model to classify DONR responses in the test dataset.
 
-#### Results
+####### Results #######
 # n.mail Profit  Model
 # 1345   11621.5 LDA
 # 1273   11635   LR
@@ -264,10 +268,12 @@ table(chat.valid.svm, c.valid) # classification table
 # 1391   11312   TREE
 # 1314   11799.5 RF 
 # 1314   11596.5 SVM
+
+# Based on maximum profit, the generalized additive model scores the best as it nets us a profit of $11,939.00 on the test data.
 ```
 
 ### Prediction modeling
-My understanding is that multi-colinearity should be very careful for building regression models; but for classification models, it is not that important. So, I removed those variables which are correlated strongly.
+Multi-colinearity should be very careful for building regression models, so I removed those variables which are correlated to each other strongly.
 
 #### Model 1: Least squares regression
 ```{r}
@@ -345,7 +351,7 @@ sd((valid.y-pred.ridge)^2)/sqrt(n.valid.y) # std error 0.173
 plot(cv.out)
 ```
 
-#### Model 5: Lasso regression using 10-fold cross-validation ###
+#### Model 5: Lasso regression using 10-fold cross-validation
 ```{r}
 set.seed(2015)
 cv.out <- cv.glmnet(x, y, alpha=1, nfolds=10)
@@ -357,7 +363,7 @@ sd((valid.y-pred.lasso)^2)/sqrt(n.valid.y) # std error 0.164
 plot(cv.out)
 ```
 
-#### Model 6: Principal Components Regression ###
+#### Model 6: Principal Components Regression
 ```{r}
 library(pls)
 set.seed(2015)
@@ -368,7 +374,7 @@ mean((y.valid - pred.valid.pcr)^2) # mean prediction error 1.869997
 sd((y.valid - pred.valid.pcr)^2)/sqrt(n.valid.y) # std error 0.1689471
 ```
 
-#### Model 7: Partial Least Squares ###
+#### Model 7: Partial Least Squares
 ```{r}
 set.seed(2015)
 pls.fit=plsr(damt ~ reg1 + reg2 + reg3 + reg4 + home + chld + hinc + I(hinc^2) + genf + wrat + avhv + npro + rgif + tdon + tlag, data=data.train.std.y, validation="CV")
@@ -376,8 +382,12 @@ summary(pls.fit)
 pred.valid.pls <- predict(pls.fit, data.valid.std.y,ncomp=5)
 mean((y.valid - pred.valid.pls)^2) # mean prediction error 1.873125
 sd((y.valid - pred.valid.pls)^2)/sqrt(n.valid.y) # std error 0.1693118
+```
 
-# Results
+```{r}
+# We will use “mean prediction error” as the evaluation criteria to select the final prediction model to predict DAMT responses in the test dataset.
+
+####### Results #######
 # MPE     sd      Model
 # 1.880   0.169   LS
 # 1.880   0.169   Stepwise
@@ -386,43 +396,6 @@ sd((y.valid - pred.valid.pls)^2)/sqrt(n.valid.y) # std error 0.1693118
 # 1.819   0.164   Lasso (Best)
 # 1.870   0.169   PCR
 # 1.873   0.169   PLS
+
+# We can see that the ridge regression and lasso model perform better than the least squares models. This could mean that the least squares estimates have high variance. We also see that the lasso performs better than the ridge regression. 
 ```
-
-### Code to generate the submitted CSV file
-```{r, eval=FALSE}
-# For the classification models, select model.gam3 since it has maximum profit in the validation sample
-post.test <- predict(model.gam3, data.test.std, type="response") # post probs for test data
-# Oversampling adjustment for calculating number of mailings for test set
-n.mail.valid <- which.max(profit.gam)
-tr.rate <- .1 # typical response rate is .1
-vr.rate <- .5 # whereas validation response rate is .5
-adj.test.1 <- (n.mail.valid/n.valid.c)/(vr.rate/tr.rate) # adjustment for mail yes
-adj.test.0 <- ((n.valid.c-n.mail.valid)/n.valid.c)/((1-vr.rate)/(1-tr.rate)) # adjustment for mail no
-adj.test <- adj.test.1/(adj.test.1+adj.test.0) # scale into a proportion
-n.mail.test <- round(n.test*adj.test, 0) # calculate number of mailings for test set
-
-cutoff.test <- sort(post.test, decreasing=T)[n.mail.test+1] # set cutoff based on n.mail.test
-chat.test <- ifelse(post.test>cutoff.test, 1, 0) # mail to everyone above the cutoff
-table(chat.test)
-#    0    1 
-# 1707  300
-# based on this model we'll mail to the 300 highest posterior probabilities
-
-
-# For the prediction models, select the Lasso model since it has minimum mean prediction error in the validation sample 
-data.test.std <- as.matrix(data.test.std)
-yhat.test <- predict(lasso, s=bestlambda, newx = data.test.std, exact=T) # test predictions 
-
-# Save final results for both classification and regression
-length(chat.test) # check length = 2007
-length(yhat.test) # check length = 2007
-chat.test[1:10] # check this consists of 0s and 1s
-yhat.test[1:10] # check this consists of plausible predictions of damt
-
-ip <- data.frame(chat=chat.test, yhat=yhat.test) 
-write.csv(ip, file="/Users/yq/Dropbox/ip.csv", row.names=FALSE) # use group member initials for file name
-
-# submit the csv file in Angel for evaluation based on actual test donr and damt values
-```
-
-
